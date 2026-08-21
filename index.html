@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Khung hình ảo bằng cử chỉ tay</title>
+  <title>Hologram Frame - Cử chỉ tay</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -32,25 +32,6 @@
       transform: scaleX(-1);
       pointer-events: none;
     }
-    #ui {
-      position: absolute;
-      top: 16px;
-      left: 0; right: 0;
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      z-index: 20;
-    }
-    .btn {
-      background: rgba(0,0,0,0.65);
-      border: none;
-      color: white;
-      padding: 10px 18px;
-      border-radius: 30px;
-      font-size: 14px;
-      backdrop-filter: blur(8px);
-      cursor: pointer;
-    }
     #status {
       position: absolute;
       bottom: 24px;
@@ -69,11 +50,7 @@
   <div id="container">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="effectCanvas"></canvas>
-
-    <div id="ui">
-      <button class="btn" onclick="toggleFrame()">Bật/Tắt khung</button>
-    </div>
-    <div id="status">Đưa tay vào khung hình</div>
+    <div id="status">Đưa tay vào khung hình để hiện Hologram</div>
   </div>
 
   <!-- MediaPipe -->
@@ -88,12 +65,8 @@
     const ctx = canvas.getContext("2d");
     const statusEl = document.getElementById("status");
 
-    let showFrame = true;
-    let frameColor = "#00f0ff"; // màu neon mặc định
-
-    function toggleFrame() {
-      showFrame = !showFrame;
-    }
+    let scanOffset = 0;
+    let time = 0;
 
     // Tính vùng bao quanh bàn tay
     function getHandBoundingBox(landmarks, width, height) {
@@ -106,12 +79,12 @@
         if (point.y > maxY) maxY = point.y;
       }
 
-      // Thêm padding cho khung đẹp hơn
-      const padding = 0.08;
-      minX = Math.max(0, minX - padding);
-      minY = Math.max(0, minY - padding);
-      maxX = Math.min(1, maxX + padding);
-      maxY = Math.min(1, maxY + padding);
+      // Thêm khoảng trống cho khung đẹp
+      const pad = 0.09;
+      minX = Math.max(0, minX - pad);
+      minY = Math.max(0, minY - pad);
+      maxX = Math.min(1, maxX + pad);
+      maxY = Math.min(1, maxY + pad);
 
       return {
         x: minX * width,
@@ -121,92 +94,113 @@
       };
     }
 
-    // Vẽ khung hình ảo đẹp
-    function drawVirtualFrame(box) {
+    // Vẽ khung Hologram
+    function drawHologramFrame(box) {
       const { x, y, w, h } = box;
-      const radius = 18;
-      const lineWidth = 5;
+      const radius = 16;
 
       ctx.save();
 
-      // Glow ngoài
-      ctx.shadowColor = frameColor;
-      ctx.shadowBlur = 25;
-      ctx.strokeStyle = frameColor;
-      ctx.lineWidth = lineWidth;
+      // ===== Glow mạnh =====
+      ctx.shadowColor = "#00f0ff";
+      ctx.shadowBlur = 30;
 
-      // Khung chính bo góc
-      ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + w - radius, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-      ctx.lineTo(x + w, y + h - radius);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-      ctx.lineTo(x + radius, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      ctx.closePath();
-      ctx.stroke();
-
-      // Viền trong mỏng hơn
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(255,255,255,0.7)";
-      ctx.stroke();
-
-      // 4 góc trang trí
-      const cornerSize = 22;
+      // Viền ngoài chính
+      ctx.strokeStyle = "#00f0ff";
       ctx.lineWidth = 3;
-      ctx.strokeStyle = frameColor;
+      roundRect(ctx, x, y, w, h, radius);
+      ctx.stroke();
 
-      // Góc trên trái
+      // Viền trong mỏng
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, x + 6, y + 6, w - 12, h - 12, radius - 4);
+      ctx.stroke();
+
+      // ===== 4 góc hologram =====
+      const corner = 26;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#00f0ff";
+      ctx.shadowBlur = 15;
+
+      // Trên trái
       ctx.beginPath();
-      ctx.moveTo(x, y + cornerSize);
+      ctx.moveTo(x, y + corner);
       ctx.lineTo(x, y);
-      ctx.lineTo(x + cornerSize, y);
+      ctx.lineTo(x + corner, y);
       ctx.stroke();
 
-      // Góc trên phải
+      // Trên phải
       ctx.beginPath();
-      ctx.moveTo(x + w - cornerSize, y);
+      ctx.moveTo(x + w - corner, y);
       ctx.lineTo(x + w, y);
-      ctx.lineTo(x + w, y + cornerSize);
+      ctx.lineTo(x + w, y + corner);
       ctx.stroke();
 
-      // Góc dưới trái
+      // Dưới trái
       ctx.beginPath();
-      ctx.moveTo(x, y + h - cornerSize);
+      ctx.moveTo(x, y + h - corner);
       ctx.lineTo(x, y + h);
-      ctx.lineTo(x + cornerSize, y + h);
+      ctx.lineTo(x + corner, y + h);
       ctx.stroke();
 
-      // Góc dưới phải
+      // Dưới phải
       ctx.beginPath();
-      ctx.moveTo(x + w - cornerSize, y + h);
+      ctx.moveTo(x + w - corner, y + h);
       ctx.lineTo(x + w, y + h);
-      ctx.lineTo(x + w, y + h - cornerSize);
+      ctx.lineTo(x + w, y + h - corner);
       ctx.stroke();
+
+      // ===== Đường scan chạy =====
+      scanOffset += 3;
+      if (scanOffset > h) scanOffset = 0;
+
+      ctx.shadowBlur = 0;
+      const gradient = ctx.createLinearGradient(x, y + scanOffset - 30, x, y + scanOffset + 30);
+      gradient.addColorStop(0, "transparent");
+      gradient.addColorStop(0.5, "rgba(0, 240, 255, 0.45)");
+      gradient.addColorStop(1, "transparent");
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x + 8, y + 8, w - 16, h - 16);
+
+      // ===== Hiệu ứng nhấp nháy nhẹ =====
+      time += 0.05;
+      const alpha = 0.08 + Math.sin(time) * 0.04;
+      ctx.fillStyle = `rgba(0, 240, 255, ${alpha})`;
+      ctx.fillRect(x + 8, y + 8, w - 16, h - 16);
 
       ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
     }
 
     function onResults(results) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-        statusEl.textContent = "Đưa tay vào khung hình";
+        statusEl.textContent = "Đưa tay vào khung hình để hiện Hologram";
         return;
       }
 
       const landmarks = results.multiHandLandmarks[0];
       const box = getHandBoundingBox(landmarks, canvas.width, canvas.height);
 
-      statusEl.textContent = "Đã phát hiện tay - Khung hình ảo đang hiện";
-
-      if (showFrame) {
-        drawVirtualFrame(box);
-      }
+      statusEl.textContent = "Hologram đang kích hoạt";
+      drawHologramFrame(box);
     }
 
     async function start() {
