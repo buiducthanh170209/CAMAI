@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b1020">
+<title>Motion Scanner - Quét vật chuyển động</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;background:#0b1020;color:#fff;font-family:Arial,sans-serif;
+  min-height:100vh;display:flex;justify-content:center;
+}
+.app{width:100%;max-width:900px;padding:18px}
+h1{text-align:center;margin:5px 0 6px;font-size:26px}
+.sub{text-align:center;color:#aeb8d0;margin:0 0 16px;font-size:14px}
+.card{
+  background:#121a30;border:1px solid #273452;border-radius:18px;padding:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.25)
+}
+.camera{
+  position:relative;width:100%;aspect-ratio:16/10;background:#05070d;
+  border-radius:14px;overflow:hidden;
+}
+video{width:100%;height:100%;object-fit:cover;display:block}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.status{
+  position:absolute;left:10px;top:10px;background:rgba(0,0,0,.65);
+  padding:8px 11px;border-radius:10px;font-size:13px;backdrop-filter:blur(5px)
+}
+.count{
+  position:absolute;right:10px;top:10px;background:rgba(15,150,90,.85);
+  padding:8px 12px;border-radius:10px;font-weight:bold
+}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+button{
+  border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:bold;
+  cursor:pointer;background:#263453;color:#fff
+}
+button.primary{background:#2563eb}
+button.stop{background:#dc2626}
+button:disabled{opacity:.45}
+.settings{margin-top:12px;display:grid;gap:10px}
+.row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:#0d1426;padding:11px 12px;border-radius:11px
+}
+input[type=range]{width:48%}
+.help{color:#aeb8d0;font-size:13px;line-height:1.5;margin-top:13px}
+#motionCanvas{display:none}
+@media(max-width:500px){
+  .app{padding:10px}
+  h1{font-size:22px}
+  .controls{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🔎 Motion Scanner</h1>
+  <p class="sub">Quét và phát hiện vật thể đang chuyển động bằng camera điện thoại</p>
+
+  <div class="card">
+    <div class="camera">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="status" id="status">Camera chưa bật</div>
+      <div class="count" id="count">0 vùng chuyển động</div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" id="startBtn">📷 Bật camera</button>
+      <button class="stop" id="stopBtn" disabled>⏹ Dừng</button>
+    </div>
+
+    <div class="settings">
+      <div class="row">
+        <span>Độ nhạy</span>
+        <input id="sensitivity" type="range" min="10" max="80" value="35">
+        <b id="sensValue">35</b>
+      </div>
+      <div class="row">
+        <span>Vùng tối thiểu</span>
+        <input id="minArea" type="range" min="100" max="3000" value="500">
+        <b id="areaValue">500</b>
+      </div>
+    </div>
+
+    <div class="help">
+      💡 Đặt điện thoại cố định và hướng camera vào khu vực cần theo dõi.
+      Khi có vật chuyển động, hệ thống sẽ khoanh vùng màu xanh.
+      <br><br>
+      ⚠️ Đây là bản phát hiện chuyển động bằng cách so sánh khung hình,
+      chưa phải AI nhận dạng người/xe/đồ vật.
+    </div>
+  </div>
+</div>
+
+<canvas id="motionCanvas"></canvas>
+
+<script>
+const video = document.getElementById("video");
+const overlay = document.getElementById("overlay");
+const ctx = overlay.getContext("2d");
+const canvas = document.getElementById("motionCanvas");
+const cctx = canvas.getContext("2d", {willReadFrequently:true});
+
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const statusEl = document.getElementById("status");
+const countEl = document.getElementById("count");
+const sensitivity = document.getElementById("sensitivity");
+const minArea = document.getElementById("minArea");
+const sensValue = document.getElementById("sensValue");
+const areaValue = document.getElementById("areaValue");
+
+let stream = null;
+let previous = null;
+let running = false;
+let lastTime = 0;
+
+sensitivity.oninput = () => sensValue.textContent = sensitivity.value;
+minArea.oninput = () => areaValue.textContent = minArea.value;
+
+function resizeCanvases(){
+  if(!video.videoWidth) return;
+  overlay.width = video.videoWidth;
+  overlay.height = video.videoHeight;
+  canvas.width = Math.min(video.videoWidth, 640);
+  canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
+}
+
+async function startCamera(){
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{
+        facingMode:{ideal:"environment"},
+        width:{ideal:1280},
+        height:{ideal:720}
+      },
+      audio:false
+    });
+
+    video.srcObject = stream;
+    await video.play();
+
+    resizeCanvases();
+    running = true;
+    previous = null;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    statusEl.textContent = "🟢 Đang quét chuyển động";
+    requestAnimationFrame(scan);
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = "❌ Không mở được camera";
+    alert("Không thể mở camera. Hãy cho phép trình duyệt sử dụng camera và mở trang bằng HTTPS.");
+  }
+}
+
+function stopCamera(){
+  running = false;
+  previous = null;
+  if(stream){
+    stream.getTracks().forEach(t=>t.stop());
+    stream = null;
+  }
+  video.srcObject = null;
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+  countEl.textContent = "0 vùng chuyển động";
+  statusEl.textContent = "Camera đã dừng";
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+}
+
+function scan(time){
+  if(!running) return;
+  requestAnimationFrame(scan);
+
+  // Giới hạn khoảng 12-15 lần/giây để điện thoại đỡ nóng
+  if(time-lastTime < 70) return;
+  lastTime = time;
+
+  if(video.readyState < 2) return;
+  resizeCanvases();
+
+  cctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const frame = cctx.getImageData(0,0,canvas.width,canvas.height);
+
+  if(!previous){
+    previous = frame;
+    return;
+  }
+
+  const w = canvas.width, h = canvas.height;
+  const data = frame.data, old = previous.data;
+  const threshold = Number(sensitivity.value);
+
+  // Lưới giúp giảm tải CPU trên điện thoại
+  const step = 4;
+  const points = [];
+
+  for(let y=0;y<h;y+=step){
+    for(let x=0;x<w;x+=step){
+      const i=(y*w+x)*4;
+      const diff =
+        Math.abs(data[i]-old[i]) +
+        Math.abs(data[i+1]-old[i+1]) +
+        Math.abs(data[i+2]-old[i+2]);
+
+      if(diff > threshold*3){
+        points.push([x,y]);
+      }
+    }
+  }
+
+  // Tìm các vùng chuyển động bằng các ô lưới
+  const cell=32;
+  const gridW=Math.ceil(w/cell);
+  const gridH=Math.ceil(h/cell);
+  const grid=new Uint16Array(gridW*gridH);
+
+  for(const [x,y] of points){
+    const gx=Math.floor(x/cell), gy=Math.floor(y/cell);
+    grid[gy*gridW+gx]++;
+  }
+
+  // Gom các ô gần nhau
+  const visited=new Uint8Array(grid.length);
+  const boxes=[];
+  const minPoints=Math.max(2, Math.floor(Number(minArea)/900));
+
+  for(let gy=0;gy<gridH;gy++){
+    for(let gx=0;gx<gridW;gx++){
+      const start=gy*gridW+gx;
+      if(visited[start] || grid[start]<minPoints) continue;
+
+      const queue=[[gx,gy]];
+      visited[start]=1;
+      let minX=gx,maxX=gx,minY=gy,maxY=gy,total=0;
+
+      while(queue.length){
+        const [cx,cy]=queue.shift();
+        total+=grid[cy*gridW+cx];
+        minX=Math.min(minX,cx); maxX=Math.max(maxX,cx);
+        minY=Math.min(minY,cy); maxY=Math.max(maxY,cy);
+
+        for(const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
+          if(nx<0||ny<0||nx>=gridW||ny>=gridH) continue;
+          const ni=ny*gridW+nx;
+          if(!visited[ni] && grid[ni]>=minPoints){
+            visited[ni]=1;
+            queue.push([nx,ny]);
+          }
+        }
+      }
+
+      const area=(maxX-minX+1)*cell*(maxY-minY+1)*cell;
+      if(area >= Number(minArea)){
+        boxes.push({
+          x:minX*cell, y:minY*cell,
+          width:(maxX-minX+1)*cell,
+          height:(maxY-minY+1)*cell
+        });
+      }
+    }
+  }
+
+  drawBoxes(boxes,w,h);
+  previous=frame;
+}
+
+function drawBoxes(boxes,w,h){
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+
+  const sx=overlay.width/w;
+  const sy=overlay.height/h;
+
+  ctx.lineWidth=4;
+  ctx.font="bold 16px Arial";
+
+  boxes.forEach((b,i)=>{
+    const x=b.x*sx, y=b.y*sy;
+    const bw=b.width*sx, bh=b.height*sy;
+
+    ctx.strokeStyle="#00ff88";
+    ctx.strokeRect(x,y,bw,bh);
+
+    ctx.fillStyle="rgba(0,0,0,.65)";
+    const label="Chuyển động "+(i+1);
+    const tw=ctx.measureText(label).width+16;
+    ctx.fillRect(x,y-25,tw,25);
+
+    ctx.fillStyle="#00ff88";
+    ctx.fillText(label,x+8,y-7);
+  });
+
+  countEl.textContent=boxes.length+" vùng chuyển động";
+}
+
+startBtn.addEventListener("click",startCamera);
+stopBtn.addEventListener("click",stopCamera);
+
+window.addEventListener("resize",resizeCanvases);
+</script>
+</body>
+</html>
