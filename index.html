@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Hologram Frame - Cử chỉ tay</title>
+  <title>Hand Gesture Particles</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -17,43 +17,47 @@
       position: relative;
       width: 100%;
       height: 100%;
+      display: flex;
     }
-    video, canvas {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+    #video, #particleCanvas {
+      width: 50%;
+      height: 100%;
       object-fit: cover;
     }
-    video {
+    #video {
       transform: scaleX(-1);
+      background: #111;
     }
-    #effectCanvas {
-      z-index: 5;
-      transform: scaleX(-1);
-      pointer-events: none;
+    #particleCanvas {
+      background: #000;
     }
     #status {
       position: absolute;
-      bottom: 24px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(0,0,0,0.7);
-      padding: 10px 22px;
-      border-radius: 30px;
-      font-size: 15px;
-      z-index: 20;
-      backdrop-filter: blur(6px);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 14px;
+      z-index: 10;
+    }
+    @media (max-width: 768px) {
+      #container { flex-direction: column; }
+      #video, #particleCanvas {
+        width: 100%;
+        height: 50%;
+      }
     }
   </style>
 </head>
 <body>
   <div id="container">
     <video id="video" autoplay playsinline muted></video>
-    <canvas id="effectCanvas"></canvas>
-    <div id="status">Đưa tay vào khung hình để hiện Hologram</div>
+    <canvas id="particleCanvas"></canvas>
   </div>
+  <div id="status">Đưa tay vào khung hình</div>
 
-  <!-- MediaPipe -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -61,152 +65,184 @@
 
   <script>
     const video = document.getElementById("video");
-    const canvas = document.getElementById("effectCanvas");
+    const canvas = document.getElementById("particleCanvas");
     const ctx = canvas.getContext("2d");
     const statusEl = document.getElementById("status");
 
-    let scanOffset = 0;
+    let particles = [];
+    let currentGesture = "none";
     let time = 0;
 
-    // Tính vùng bao quanh bàn tay
-    function getHandBoundingBox(landmarks, width, height) {
-      let minX = 1, minY = 1, maxX = 0, maxY = 0;
+    // ====================== PARTICLE ======================
+    class Particle {
+      constructor(x, y, color, type = "normal") {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.type = type;
+        this.life = 1;
+        this.size = 2 + Math.random() * 3;
 
-      for (const point of landmarks) {
-        if (point.x < minX) minX = point.x;
-        if (point.x > maxX) maxX = point.x;
-        if (point.y < minY) minY = point.y;
-        if (point.y > maxY) maxY = point.y;
+        if (type === "spiral") {
+          this.angle = Math.random() * Math.PI * 2;
+          this.radius = 5 + Math.random() * 10;
+          this.speed = 0.05 + Math.random() * 0.05;
+          this.centerX = x;
+          this.centerY = y;
+        } else if (type === "heart") {
+          this.vx = (Math.random() - 0.5) * 2;
+          this.vy = (Math.random() - 0.5) * 2 - 1;
+        } else {
+          this.vx = (Math.random() - 0.5) * 4;
+          this.vy = (Math.random() - 0.5) * 4;
+        }
       }
 
-      // Thêm khoảng trống cho khung đẹp
-      const pad = 0.09;
-      minX = Math.max(0, minX - pad);
-      minY = Math.max(0, minY - pad);
-      maxX = Math.min(1, maxX + pad);
-      maxY = Math.min(1, maxY + pad);
+      update() {
+        if (this.type === "spiral") {
+          this.angle += this.speed;
+          this.radius += 0.3;
+          this.x = this.centerX + Math.cos(this.angle) * this.radius;
+          this.y = this.centerY + Math.sin(this.angle) * this.radius;
+          this.life -= 0.008;
+        } else {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.life -= 0.012;
+        }
+      }
 
-      return {
-        x: minX * width,
-        y: minY * height,
-        w: (maxX - minX) * width,
-        h: (maxY - minY) * height
-      };
+      draw(ctx) {
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
     }
 
-    // Vẽ khung Hologram
-    function drawHologramFrame(box) {
-      const { x, y, w, h } = box;
-      const radius = 16;
+    // ====================== ĐẾM NGÓN & NHẬN CỬ CHỈ ======================
+    function countFingers(landmarks) {
+      const tips = [8, 12, 16, 20];
+      const pips = [6, 10, 14, 18];
+      let count = 0;
 
-      ctx.save();
+      // Ngón cái
+      if (landmarks[4].x < landmarks[3].x) count++;
 
-      // ===== Glow mạnh =====
-      ctx.shadowColor = "#00f0ff";
-      ctx.shadowBlur = 30;
-
-      // Viền ngoài chính
-      ctx.strokeStyle = "#00f0ff";
-      ctx.lineWidth = 3;
-      roundRect(ctx, x, y, w, h, radius);
-      ctx.stroke();
-
-      // Viền trong mỏng
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
-      ctx.lineWidth = 1.5;
-      roundRect(ctx, x + 6, y + 6, w - 12, h - 12, radius - 4);
-      ctx.stroke();
-
-      // ===== 4 góc hologram =====
-      const corner = 26;
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#00f0ff";
-      ctx.shadowBlur = 15;
-
-      // Trên trái
-      ctx.beginPath();
-      ctx.moveTo(x, y + corner);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x + corner, y);
-      ctx.stroke();
-
-      // Trên phải
-      ctx.beginPath();
-      ctx.moveTo(x + w - corner, y);
-      ctx.lineTo(x + w, y);
-      ctx.lineTo(x + w, y + corner);
-      ctx.stroke();
-
-      // Dưới trái
-      ctx.beginPath();
-      ctx.moveTo(x, y + h - corner);
-      ctx.lineTo(x, y + h);
-      ctx.lineTo(x + corner, y + h);
-      ctx.stroke();
-
-      // Dưới phải
-      ctx.beginPath();
-      ctx.moveTo(x + w - corner, y + h);
-      ctx.lineTo(x + w, y + h);
-      ctx.lineTo(x + w, y + h - corner);
-      ctx.stroke();
-
-      // ===== Đường scan chạy =====
-      scanOffset += 3;
-      if (scanOffset > h) scanOffset = 0;
-
-      ctx.shadowBlur = 0;
-      const gradient = ctx.createLinearGradient(x, y + scanOffset - 30, x, y + scanOffset + 30);
-      gradient.addColorStop(0, "transparent");
-      gradient.addColorStop(0.5, "rgba(0, 240, 255, 0.45)");
-      gradient.addColorStop(1, "transparent");
-
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x + 8, y + 8, w - 16, h - 16);
-
-      // ===== Hiệu ứng nhấp nháy nhẹ =====
-      time += 0.05;
-      const alpha = 0.08 + Math.sin(time) * 0.04;
-      ctx.fillStyle = `rgba(0, 240, 255, ${alpha})`;
-      ctx.fillRect(x + 8, y + 8, w - 16, h - 16);
-
-      ctx.restore();
+      for (let i = 0; i < 4; i++) {
+        if (landmarks[tips[i]].y < landmarks[pips[i]].y) count++;
+      }
+      return count;
     }
 
-    function roundRect(ctx, x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-      ctx.lineTo(x + w, y + h - r);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      ctx.lineTo(x + r, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-      ctx.lineTo(x, y + r);
-      ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
+    function detectGesture(landmarks) {
+      const fingers = countFingers(landmarks);
+
+      // Peace sign (2 ngón)
+      if (fingers === 2) return "peace";
+
+      // 1 ngón trỏ
+      if (fingers === 1) return "one";
+
+      // Bàn tay mở
+      if (fingers >= 4) return "open";
+
+      // Nắm tay / ít ngón
+      if (fingers <= 1) return "fist";
+
+      return "other";
     }
 
+    // ====================== TẠO HIỆU ỨNG THEO CỬ CHỈ ======================
+    function spawnParticles(gesture, landmarks) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+
+      if (gesture === "one") {
+        // Xoắn ốc vàng
+        for (let i = 0; i < 8; i++) {
+          particles.push(new Particle(cx, cy, "#ffaa00", "spiral"));
+        }
+      } 
+      else if (gesture === "peace") {
+        // Chữ I LOVE YOU (đơn giản bằng hạt)
+        const text = "I LOVE YOU";
+        ctx.font = "bold 48px Arial";
+        const metrics = ctx.measureText(text);
+        const startX = cx - metrics.width / 2;
+
+        for (let i = 0; i < text.length; i++) {
+          const x = startX + i * 38;
+          for (let j = 0; j < 6; j++) {
+            particles.push(new Particle(
+              x + (Math.random() - 0.5) * 20,
+              cy + (Math.random() - 0.5) * 30,
+              "#00e5ff"
+            ));
+          }
+        }
+      } 
+      else if (gesture === "open") {
+        // Hạt xanh bay
+        for (let i = 0; i < 15; i++) {
+          particles.push(new Particle(
+            cx + (Math.random() - 0.5) * 200,
+            cy + (Math.random() - 0.5) * 200,
+            "#4fc3f7"
+          ));
+        }
+      } 
+      else if (gesture === "fist") {
+        // Trái tim hồng
+        for (let i = 0; i < 12; i++) {
+          const t = Math.random() * Math.PI * 2;
+          const r = 40 + Math.random() * 30;
+          const x = cx + 16 * Math.pow(Math.sin(t), 3);
+          const y = cy - (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+          particles.push(new Particle(x, y, "#ff2d55", "heart"));
+        }
+      }
+    }
+
+    // ====================== VẼ ======================
     function onResults(results) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      time++;
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-        statusEl.textContent = "Đưa tay vào khung hình để hiện Hologram";
-        return;
+        statusEl.textContent = "Đưa tay vào khung hình";
+        currentGesture = "none";
+      } else {
+        const landmarks = results.multiHandLandmarks[0];
+        const gesture = detectGesture(landmarks);
+
+        if (gesture !== currentGesture) {
+          currentGesture = gesture;
+          statusEl.textContent = "Cử chỉ: " + gesture.toUpperCase();
+        }
+
+        // Spawn hạt liên tục
+        if (time % 3 === 0) {
+          spawnParticles(gesture, landmarks);
+        }
       }
 
-      const landmarks = results.multiHandLandmarks[0];
-      const box = getHandBoundingBox(landmarks, canvas.width, canvas.height);
-
-      statusEl.textContent = "Hologram đang kích hoạt";
-      drawHologramFrame(box);
+      // Cập nhật & vẽ particle
+      particles = particles.filter(p => p.life > 0);
+      particles.forEach(p => {
+        p.update();
+        p.draw(ctx);
+      });
     }
 
+    // ====================== KHỞI ĐỘNG ======================
     async function start() {
       function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
       }
       resize();
       window.addEventListener("resize", resize);
@@ -218,8 +254,8 @@
       hands.setOptions({
         maxNumHands: 1,
         modelComplexity: 1,
-        minDetectionConfidence: 0.75,
-        minTrackingConfidence: 0.65
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.6
       });
 
       hands.onResults(onResults);
@@ -228,8 +264,8 @@
         onFrame: async () => {
           await hands.send({ image: video });
         },
-        width: 1280,
-        height: 720
+        width: 640,
+        height: 480
       });
 
       await camera.start();
