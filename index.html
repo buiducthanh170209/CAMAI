@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 
-<title>TANK Hologram Hand Control</title>
+<title>TANK Hand Frame</title>
 
 <style>
 *{
@@ -18,7 +18,7 @@ html,body{
     width:100%;
     height:100%;
     overflow:hidden;
-    background:#000;
+    background:#020508;
     font-family:Arial,sans-serif;
 }
 
@@ -33,13 +33,13 @@ html,body{
     position:fixed;
     right:15px;
     bottom:15px;
-    width:160px;
-    height:120px;
+    width:170px;
+    height:125px;
     object-fit:cover;
-    border-radius:15px;
-    opacity:.30;
     transform:scaleX(-1);
+    opacity:.25;
     border:1px solid #00ffff;
+    border-radius:14px;
     z-index:5;
 }
 
@@ -52,24 +52,29 @@ html,body{
     text-shadow:
         0 0 5px #00ffff,
         0 0 15px #00ffff;
-    pointer-events:none;
 }
 
 #title{
-    font-size:24px;
+    font-size:23px;
     font-weight:bold;
     letter-spacing:2px;
 }
 
-#gesture{
+#status{
     margin-top:8px;
-    font-size:18px;
+    font-size:16px;
 }
 
-#status{
-    margin-top:6px;
-    font-size:12px;
-    opacity:.75;
+#instruction{
+    position:fixed;
+    bottom:25px;
+    left:50%;
+    transform:translateX(-50%);
+    color:#00ffff;
+    opacity:.7;
+    text-align:center;
+    font-size:13px;
+    z-index:10;
 }
 
 #start{
@@ -79,32 +84,18 @@ html,body{
     transform:translate(-50%,-50%);
     z-index:20;
 
-    padding:18px 30px;
+    background:rgba(0,20,30,.95);
+    color:#00ffff;
 
     border:1px solid #00ffff;
     border-radius:15px;
 
-    color:#00ffff;
-    background:rgba(0,15,25,.92);
+    padding:18px 30px;
 
     font-size:18px;
-    font-weight:bold;
 
     box-shadow:
-        0 0 15px #00ffff,
-        inset 0 0 20px rgba(0,255,255,.15);
-}
-
-.hint{
-    position:fixed;
-    bottom:145px;
-    left:50%;
-    transform:translateX(-50%);
-
-    color:rgba(0,255,255,.6);
-    font-size:12px;
-    text-align:center;
-    pointer-events:none;
+        0 0 20px #00ffff;
 }
 </style>
 </head>
@@ -114,79 +105,34 @@ html,body{
 <canvas id="canvas"></canvas>
 
 <video id="camera"
-       autoplay
-       muted
-       playsinline></video>
+autoplay
+playsinline
+muted></video>
 
 <div id="ui">
-
-    <div id="title">
-        TANK HOLOGRAM
-    </div>
-
-    <div id="gesture">
-        Đưa tay trước camera...
-    </div>
-
-    <div id="status">
-        Chưa kết nối camera
-    </div>
-
+    <div id="title">TANK • HAND HOLOGRAM</div>
+    <div id="status">Đưa tay vào camera...</div>
 </div>
 
-<div class="hint">
-    Di chuyển tay • 🤏 Pinch • ✋ Đẩy tay • Xoay cổ tay
+<div id="instruction">
+    🤏 Chụm ngón cái + trỏ → kéo tạo khung • Thả tay → chụp khung
 </div>
 
 <button id="start">
-    🎥 BẬT HOLOGRAM
+    🎥 BẬT CAMERA
 </button>
 
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-
 <script>
 
 /* =========================================================
-   TANK HOLOGRAM
-   Hand-controlled particle system
-========================================================= */
-
-
-/* =========================
-   CONFIG
-========================= */
-
-const MAX_PARTICLES = 14000;
-
-let particleCount = 12000;
-
-let currentShape = "sphere";
-
-let currentGesture = "";
-
-let handDetected = false;
-
-
-/* =========================
-   UI
-========================= */
-
-const gestureUI =
-document.getElementById("gesture");
-
-const statusUI =
-document.getElementById("status");
-
-
-/* =========================
    THREE
-========================= */
+========================================================= */
 
 const canvas =
 document.getElementById("canvas");
@@ -194,16 +140,15 @@ document.getElementById("canvas");
 const scene =
 new THREE.Scene();
 
-
-const camera3D =
+const camera =
 new THREE.PerspectiveCamera(
-    65,
-    innerWidth / innerHeight,
-    0.1,
+    60,
+    innerWidth/innerHeight,
+    .1,
     100
 );
 
-camera3D.position.z = 6;
+camera.position.z=7;
 
 
 const renderer =
@@ -213,15 +158,16 @@ new THREE.WebGLRenderer({
 
     antialias:false,
 
+    alpha:false,
+
     powerPreference:
         "high-performance"
 
 });
 
-
 renderer.setPixelRatio(
     Math.min(
-        window.devicePixelRatio || 1,
+        devicePixelRatio,
         1.5
     )
 );
@@ -232,55 +178,34 @@ renderer.setSize(
 );
 
 
-/* =========================
-   PARTICLES
-========================= */
+/* =========================================================
+   PARTICLE BACKGROUND
+========================================================= */
 
-const positions =
-new Float32Array(
-    MAX_PARTICLES * 3
-);
+const COUNT=5000;
 
-const targets =
-new Float32Array(
-    MAX_PARTICLES * 3
-);
+const positions=
+new Float32Array(COUNT*3);
 
-
-for(
-    let i=0;
-    i<MAX_PARTICLES;
-    i++
-){
+for(let i=0;i<COUNT;i++){
 
     const j=i*3;
 
-    positions[j] =
+    positions[j]=
+        (Math.random()-.5)*14;
+
+    positions[j+1]=
+        (Math.random()-.5)*9;
+
+    positions[j+2]=
         (Math.random()-.5)*4;
-
-    positions[j+1] =
-        (Math.random()-.5)*4;
-
-    positions[j+2] =
-        (Math.random()-.5)*4;
-
-    targets[j] =
-        positions[j];
-
-    targets[j+1] =
-        positions[j+1];
-
-    targets[j+2] =
-        positions[j+2];
-
 }
 
 
-const geometry =
+const bgGeometry=
 new THREE.BufferGeometry();
 
-
-geometry.setAttribute(
+bgGeometry.setAttribute(
     "position",
     new THREE.BufferAttribute(
         positions,
@@ -289,191 +214,176 @@ geometry.setAttribute(
 );
 
 
-/* =========================
-   PARTICLE MATERIAL
-========================= */
-
-const material =
+const bgMaterial=
 new THREE.PointsMaterial({
 
-    color:0x00ffff,
+    color:0x006f88,
 
-    size:.025,
+    size:.015,
 
     transparent:true,
 
-    opacity:.92,
-
-    depthWrite:false,
+    opacity:.35,
 
     blending:
-        THREE.AdditiveBlending
+        THREE.AdditiveBlending,
+
+    depthWrite:false
 
 });
 
 
-const particles =
+const backgroundParticles=
 new THREE.Points(
-    geometry,
-    material
+    bgGeometry,
+    bgMaterial
+);
+
+scene.add(
+    backgroundParticles
 );
 
 
-scene.add(particles);
+/* =========================================================
+   HAND JOINT VISUALIZATION
+========================================================= */
+
+const jointGroup=
+new THREE.Group();
+
+scene.add(jointGroup);
+
+
+const jointMaterial=
+new THREE.MeshBasicMaterial({
+    color:0x00ffff
+});
+
+
+const jointGeometry=
+new THREE.SphereGeometry(
+    .055,
+    8,
+    8
+);
+
+
+const joints=[];
+
+
+for(let i=0;i<21;i++){
+
+    const mesh=
+        new THREE.Mesh(
+            jointGeometry,
+            jointMaterial
+        );
+
+    jointGroup.add(mesh);
+
+    joints.push(mesh);
+
+}
 
 
 /* =========================================================
-   SHAPE GENERATORS
+   HAND BONE LINES
 ========================================================= */
 
+const connections=[
 
-/* ---------- SPHERE ---------- */
+    [0,1],
+    [1,2],
+    [2,3],
+    [3,4],
 
-function spherePoint(){
+    [0,5],
+    [5,6],
+    [6,7],
+    [7,8],
 
-    const theta =
-        Math.random() *
-        Math.PI * 2;
+    [0,9],
+    [9,10],
+    [10,11],
+    [11,12],
 
-    const phi =
-        Math.acos(
-            2*Math.random()-1
-        );
+    [0,13],
+    [13,14],
+    [14,15],
+    [15,16],
 
-    const radius =
-        1.55 *
-        Math.cbrt(
-            Math.random()
-        );
+    [0,17],
+    [17,18],
+    [18,19],
+    [19,20],
 
-    return {
+    [5,9],
+    [9,13],
+    [13,17]
 
-        x:
-        radius *
-        Math.sin(phi) *
-        Math.cos(theta),
-
-        y:
-        radius *
-        Math.sin(phi) *
-        Math.sin(theta),
-
-        z:
-        radius *
-        Math.cos(phi)
-
-    };
-
-}
+];
 
 
-/* ---------- CUBE ---------- */
+const lineMaterial=
+new THREE.LineBasicMaterial({
 
-function cubePoint(){
+    color:0x00ffff,
 
-    const s=1.6;
+    transparent:true,
 
-    const face =
-        Math.floor(
-            Math.random()*6
-        );
+    opacity:.65
 
-    let x =
-        (Math.random()-.5)*s*2;
-
-    let y =
-        (Math.random()-.5)*s*2;
-
-    let z =
-        (Math.random()-.5)*s*2;
+});
 
 
-    if(face===0) x=s;
-    if(face===1) x=-s;
-
-    if(face===2) y=s;
-    if(face===3) y=-s;
-
-    if(face===4) z=s;
-    if(face===5) z=-s;
+const boneLines=[];
 
 
-    return{x,y,z};
+for(
+    let i=0;
+    i<connections.length;
+    i++
+){
 
-}
+    const geometry=
+        new THREE.BufferGeometry();
 
+    const points=
+        new Float32Array(6);
 
-/* ---------- EXPLOSION ---------- */
-
-function explosionPoint(){
-
-    const theta =
-        Math.random() *
-        Math.PI * 2;
-
-    const phi =
-        Math.acos(
-            2*Math.random()-1
-        );
-
-    const radius =
-        1.2+
-        Math.random()*3.2;
-
-    return {
-
-        x:
-        radius*
-        Math.sin(phi)*
-        Math.cos(theta),
-
-        y:
-        radius*
-        Math.sin(phi)*
-        Math.sin(theta),
-
-        z:
-        radius*
-        Math.cos(phi)
-
-    };
-
-}
-
-
-/* ---------- HEART ---------- */
-
-function heartPoint(){
-
-    const t =
-        Math.random() *
-        Math.PI * 2;
-
-    const r =
-        Math.sqrt(
-            Math.random()
-        );
-
-    const x =
-        16*Math.pow(
-            Math.sin(t),
+    geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+            points,
             3
+        )
+    );
+
+    const line=
+        new THREE.Line(
+            geometry,
+            lineMaterial
         );
 
-    const y =
-        13*Math.cos(t)
-        -5*Math.cos(2*t)
-        -2*Math.cos(3*t)
-        -Math.cos(4*t);
+    jointGroup.add(line);
+
+    boneLines.push(line);
+}
+
+
+/* =========================================================
+   HAND POSITION
+========================================================= */
+
+function handToWorld(x,y){
 
     return {
 
-        x:x*r*.115,
+        x:(x-.5)*6,
 
-        y:y*r*.115,
+        y:-(y-.5)*4,
 
-        z:
-        (Math.random()-.5)*.45
+        z:0
 
     };
 
@@ -481,189 +391,133 @@ function heartPoint(){
 
 
 /* =========================================================
-   VIETNAM FLAG
+   FRAME SYSTEM
 ========================================================= */
 
-function flagPoint(){
+let frame=null;
 
-    const width=4.2;
+let frameActive=false;
 
-    const height=2.5;
+let frameStartX=0;
 
-    let x =
-        (Math.random()-.5)*width;
+let frameStartY=0;
 
-    let y =
-        (Math.random()-.5)*height;
+let frameCurrentX=0;
 
-    let z =
-        (Math.random()-.5)*.08;
-
-
-    /*
-       Approximate five-point star region
-    */
-
-    const dx=x;
-
-    const dy=y;
-
-    const distance =
-        Math.sqrt(
-            dx*dx+dy*dy
-        );
-
-
-    if(distance<.75){
-
-        const angle =
-            Math.atan2(
-                dy,
-                dx
-            );
-
-        const star =
-            Math.cos(
-                angle*5
-            );
-
-
-        if(star>0.08){
-
-            const r =
-                Math.random()*.72;
-
-            x =
-                Math.cos(angle)*r;
-
-            y =
-                Math.sin(angle)*r;
-
-            z=.12;
-
-        }
-
-    }
-
-
-    return{x,y,z};
-
-}
+let frameCurrentY=0;
 
 
 /* =========================================================
-   TANK TEXT
+   FRAME OBJECT
 ========================================================= */
 
-function makeTank(){
+function createFrame(){
 
-    const c =
-        document.createElement(
-            "canvas"
-        );
-
-    c.width=800;
-
-    c.height=300;
+    const group=
+        new THREE.Group();
 
 
-    const ctx =
-        c.getContext("2d");
+    const material=
+        new THREE.LineBasicMaterial({
+
+            color:0x00ffff,
+
+            transparent:true,
+
+            opacity:.95
+
+        });
 
 
-    ctx.fillStyle="white";
-
-    ctx.font=
-        "bold 220px Arial";
-
-    ctx.textAlign="center";
-
-    ctx.textBaseline="middle";
+    const geometry=
+        new THREE.BufferGeometry();
 
 
-    ctx.fillText(
-        "TANK",
-        400,
-        150
+    const points=
+        new Float32Array(15);
+
+
+    geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+            points,
+            3
+        )
     );
 
 
-    const data =
-        ctx.getImageData(
-            0,
-            0,
-            800,
-            300
-        ).data;
+    const line=
+        new THREE.Line(
+            geometry,
+            material
+        );
 
 
-    const points=[];
+    group.add(line);
 
 
-    for(
-        let y=0;
-        y<300;
-        y+=5
-    ){
+    /* 4 góc sáng */
 
-        for(
-            let x=0;
-            x<800;
-            x+=5
-        ){
-
-            const index =
-                (y*800+x)*4;
+    const cornerMaterial=
+        new THREE.MeshBasicMaterial({
+            color:0xffffff
+        });
 
 
-            if(
-                data[index+3]>100
-            ){
+    for(let i=0;i<4;i++){
 
-                points.push({
+        const c=
+            new THREE.Mesh(
+                new THREE.SphereGeometry(
+                    .07,
+                    8,
+                    8
+                ),
+                cornerMaterial
+            );
 
-                    x:
-                    (x-400)/85,
-
-                    y:
-                    -(y-150)/85,
-
-                    z:
-                    (Math.random()-.5)*.25
-
-                });
-
-            }
-
-        }
+        group.add(c);
 
     }
 
 
-    return points;
+    /* scan line */
 
-}
+    const scanGeometry=
+        new THREE.BufferGeometry();
+
+    const scanPoints=
+        new Float32Array(6);
+
+    scanGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+            scanPoints,
+            3
+        )
+    );
+
+    const scanLine=
+        new THREE.Line(
+            scanGeometry,
+            new THREE.LineBasicMaterial({
+                color:0x00ffff,
+                transparent:true,
+                opacity:.7
+            })
+        );
+
+    group.add(scanLine);
 
 
-const tankPoints =
-makeTank();
+    /* particles inside frame */
 
+    const particleCount=900;
 
-/* =========================================================
-   CHANGE SHAPE
-========================================================= */
-
-function changeShape(type){
-
-    if(
-        type===currentShape
-    ){
-        return;
-    }
-
-
-    currentShape=type;
-
+    const p=
+        new Float32Array(
+            particleCount*3
+        );
 
     for(
         let i=0;
@@ -671,209 +525,266 @@ function changeShape(type){
         i++
     ){
 
-        let p;
+        p[i*3]=
+            (Math.random()-.5);
 
+        p[i*3+1]=
+            (Math.random()-.5);
 
-        if(type==="sphere")
-            p=spherePoint();
-
-        else if(type==="cube")
-            p=cubePoint();
-
-        else if(type==="explode")
-            p=explosionPoint();
-
-        else if(type==="heart")
-            p=heartPoint();
-
-        else if(type==="flag")
-            p=flagPoint();
-
-        else if(type==="tank")
-            p=
-            tankPoints[
-                i%tankPoints.length
-            ];
-
-
-        const j=i*3;
-
-
-        targets[j]=p.x;
-
-        targets[j+1]=p.y;
-
-        targets[j+2]=p.z;
+        p[i*3+2]=
+            (Math.random()-.5)*.3;
 
     }
 
 
-    if(type==="heart"){
+    const pg=
+        new THREE.BufferGeometry();
 
-        material.color.setHex(
-            0xff1595
-        );
-
-    }
-
-    else if(type==="flag"){
-
-        material.color.setHex(
-            0xff2222
-        );
-
-    }
-
-    else{
-
-        material.color.setHex(
-            0x00ffff
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   HAND STATE
-========================================================= */
-
-let handX=.5;
-
-let handY=.5;
-
-let handDepth=.5;
-
-let handRotation=0;
-
-let pinch=false;
-
-let indexX=.5;
-
-let indexY=.5;
-
-
-/* smoothing */
-
-let smoothX=.5;
-
-let smoothY=.5;
-
-let smoothDepth=.5;
-
-let smoothRotation=0;
-
-
-/* =========================================================
-   COUNT FINGERS
-========================================================= */
-
-function countFingers(l){
-
-    let count=0;
-
-
-    /*
-       thumb
-    */
-
-    const thumbTip=l[4];
-
-    const thumbIP=l[3];
-
-
-    if(
-        Math.abs(
-            thumbTip.x-l[17].x
-        ) >
-        Math.abs(
-            thumbIP.x-l[17].x
+    pg.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+            p,
+            3
         )
-    ){
-
-        count++;
-
-    }
+    );
 
 
-    /*
-       other fingers
-    */
+    const pm=
+        new THREE.PointsMaterial({
 
-    const tips=[
-        8,12,16,20
-    ];
+            color:0x00ffff,
 
-    const joints=[
-        6,10,14,18
-    ];
+            size:.025,
 
+            transparent:true,
 
-    for(
-        let i=0;
-        i<4;
-        i++
-    ){
+            opacity:.65,
 
-        if(
-            l[tips[i]].y <
-            l[joints[i]].y
-        ){
+            blending:
+                THREE.AdditiveBlending,
 
-            count++;
+            depthWrite:false
 
-        }
-
-    }
+        });
 
 
-    return count;
+    const particles=
+        new THREE.Points(
+            pg,
+            pm
+        );
 
+    group.add(
+        particles
+    );
+
+
+    return group;
 }
 
 
 /* =========================================================
-   PINCH DETECTION
+   UPDATE FRAME
 ========================================================= */
 
-function isPinching(l){
+function updateFrame(){
 
-    const dx =
-        l[4].x-l[8].x;
-
-    const dy =
-        l[4].y-l[8].y;
+    if(!frame)
+        return;
 
 
-    const distance =
-        Math.sqrt(
-            dx*dx+
-            dy*dy
+    const x1=
+        Math.min(
+            frameStartX,
+            frameCurrentX
+        );
+
+    const x2=
+        Math.max(
+            frameStartX,
+            frameCurrentX
+        );
+
+    const y1=
+        Math.min(
+            frameStartY,
+            frameCurrentY
+        );
+
+    const y2=
+        Math.max(
+            frameStartY,
+            frameCurrentY
         );
 
 
-    return distance<.075;
+    const width=
+        Math.max(
+            .2,
+            x2-x1
+        );
+
+    const height=
+        Math.max(
+            .2,
+            y2-y1
+        );
+
+
+    frame.position.set(
+        (x1+x2)/2,
+        (y1+y2)/2,
+        .3
+    );
+
+
+    frame.scale.set(
+        width,
+        height,
+        1
+    );
+
+
+    /* corners */
+
+    const corners=[
+        frame.children[1],
+        frame.children[2],
+        frame.children[3],
+        frame.children[4]
+    ];
+
+
+    corners[0].position.set(
+        -.5,
+        .5,
+        0
+    );
+
+    corners[1].position.set(
+        .5,
+        .5,
+        0
+    );
+
+    corners[2].position.set(
+        -.5,
+        -.5,
+        0
+    );
+
+    corners[3].position.set(
+        .5,
+        -.5,
+        0
+    );
+
+
+    /* scan */
+
+    const scan=
+        frame.children[5];
+
+    const scanPos=
+        scan.geometry
+        .attributes
+        .position.array;
+
+
+    const t=
+        (performance.now()*.0005)%1;
+
+
+    const sy=
+        .5-t;
+
+
+    scanPos[0]=-.5;
+    scanPos[1]=sy;
+    scanPos[2]=.02;
+
+    scanPos[3]=.5;
+    scanPos[4]=sy;
+    scanPos[5]=.02;
+
+
+    scan.geometry
+        .attributes
+        .position
+        .needsUpdate=true;
+
+
+    /* particles */
+
+    const particleObject=
+        frame.children[6];
+
+    particleObject.rotation.z +=
+        .002;
 
 }
 
 
 /* =========================================================
-   HAND ROTATION
+   CREATE FRAME
 ========================================================= */
 
-function getHandRotation(l){
+function beginFrame(x,y){
 
-    const dx =
-        l[17].x-l[5].x;
-
-    const dy =
-        l[17].y-l[5].y;
+    if(frame)
+        scene.remove(frame);
 
 
-    return Math.atan2(
-        dy,
-        dx
+    frame=
+        createFrame();
+
+    scene.add(frame);
+
+
+    frameActive=true;
+
+    frameStartX=x;
+
+    frameStartY=y;
+
+    frameCurrentX=x;
+
+    frameCurrentY=y;
+
+    updateFrame();
+
+
+    statusText(
+        "Đang kéo tạo khung..."
+    );
+
+}
+
+
+/* =========================================================
+   FINISH FRAME
+========================================================= */
+
+function finishFrame(){
+
+    if(!frame)
+        return;
+
+
+    frameActive=false;
+
+
+    /*
+       flash
+    */
+
+    frame.scale.multiplyScalar(
+        1.08
+    );
+
+
+    statusText(
+        "✓ Đã chụp khung hologram"
     );
 
 }
@@ -883,7 +794,13 @@ function getHandRotation(l){
    MEDIAPIPE
 ========================================================= */
 
-const hands =
+const video=
+document.getElementById(
+    "camera"
+);
+
+
+const hands=
 new Hands({
 
     locateFile:
@@ -906,6 +823,44 @@ hands.setOptions({
 });
 
 
+/* =========================================================
+   STATUS
+========================================================= */
+
+function statusText(text){
+
+    document
+    .getElementById("status")
+    .innerText=text;
+
+}
+
+
+/* =========================================================
+   PINCH
+========================================================= */
+
+function pinchDistance(l){
+
+    const dx=
+        l[4].x-l[8].x;
+
+    const dy=
+        l[4].y-l[8].y;
+
+
+    return Math.sqrt(
+        dx*dx+
+        dy*dy
+    );
+
+}
+
+
+/* =========================================================
+   MEDIAPIPE RESULTS
+========================================================= */
+
 hands.onResults(
 results=>{
 
@@ -914,493 +869,201 @@ results=>{
         results.multiHandLandmarks.length===0
     ){
 
-        handDetected=false;
-
-        statusUI.innerText=
-            "Đang tìm bàn tay...";
+        statusText(
+            "Đang tìm bàn tay..."
+        );
 
         return;
-
     }
 
 
-    handDetected=true;
-
-
-    const l =
+    const l=
         results.multiHandLandmarks[0];
 
 
     /* =========================
-       POSITION
+       DRAW 21 JOINTS
     ========================= */
 
-    handX=l[9].x;
+    for(
+        let i=0;
+        i<21;
+        i++
+    ){
 
-    handY=l[9].y;
-
-
-    /*
-       depth approximation
-       distance wrist -> middle MCP
-    */
-
-    const dx =
-        l[5].x-l[17].x;
-
-    const dy =
-        l[5].y-l[17].y;
+        const p=
+            handToWorld(
+                l[i].x,
+                l[i].y
+            );
 
 
-    const palmSize =
-        Math.sqrt(
-            dx*dx+dy*dy
+        joints[i]
+        .position.set(
+            p.x,
+            p.y,
+            .1
+        );
+
+    }
+
+
+    /* =========================
+       DRAW BONES
+    ========================= */
+
+    for(
+        let i=0;
+        i<connections.length;
+        i++
+    ){
+
+        const a=
+            connections[i][0];
+
+        const b=
+            connections[i][1];
+
+
+        const arr=
+            boneLines[i]
+            .geometry
+            .attributes
+            .position
+            .array;
+
+
+        arr[0]=
+            joints[a].position.x;
+
+        arr[1]=
+            joints[a].position.y;
+
+        arr[2]=
+            .08;
+
+
+        arr[3]=
+            joints[b].position.x;
+
+        arr[4]=
+            joints[b].position.y;
+
+        arr[5]=
+            .08;
+
+
+        boneLines[i]
+        .geometry
+        .attributes
+        .position
+        .needsUpdate=true;
+
+    }
+
+
+    /* =========================
+       THUMB + INDEX
+    ========================= */
+
+    const thumb=
+        handToWorld(
+            l[4].x,
+            l[4].y
         );
 
 
-    handDepth =
-        THREE.MathUtils.clamp(
-            palmSize,
-            .10,
-            .35
+    const index=
+        handToWorld(
+            l[8].x,
+            l[8].y
         );
 
 
-    /* =========================
-       ROTATION
-    ========================= */
-
-    handRotation =
-        getHandRotation(l);
+    const distance=
+        pinchDistance(l);
 
 
-    /* =========================
-       INDEX
-    ========================= */
-
-    indexX=l[8].x;
-
-    indexY=l[8].y;
+    const pinching=
+        distance<.075;
 
 
     /* =========================
-       PINCH
+       PINCH DRAG
     ========================= */
 
-    pinch=
-        isPinching(l);
+    if(pinching){
+
+        /*
+           vị trí trung tâm giữa
+           ngón cái và trỏ
+        */
+
+        const centerX=
+            (thumb.x+index.x)/2;
+
+        const centerY=
+            (thumb.y+index.y)/2;
 
 
-    /* =========================
-       GESTURE
-    ========================= */
+        if(!frameActive){
 
-    const fingers =
-        countFingers(l);
+            beginFrame(
+                centerX,
+                centerY
+            );
 
-
-    let type="";
-
-    let label="";
+        }
 
 
-    if(fingers===0){
+        /*
+           khung thay đổi theo
+           khoảng cách 2 ngón
+        */
 
-        type="tank";
+        frameCurrentX=
+            index.x;
 
-        label="✊ TANK";
-
-    }
-
-    else if(fingers===1){
-
-        type="explode";
-
-        label="☝️ HẠT NỞ";
-
-    }
-
-    else if(fingers===2){
-
-        type="cube";
-
-        label="✌️ HÌNH VUÔNG";
-
-    }
-
-    else if(fingers===3){
-
-        type="sphere";
-
-        label="🤟 HÌNH CẦU";
-
-    }
-
-    else if(fingers===4){
-
-        type="heart";
-
-        label="🖖 TRÁI TIM";
-
-    }
-
-    else if(fingers===5){
-
-        type="flag";
-
-        label="🖐️ VIỆT NAM 🇻🇳";
-
-    }
+        frameCurrentY=
+            index.y;
 
 
-    gestureUI.innerText=
-        label+
-        (
-            pinch
-            ?"  •  🤏 PINCH"
-            :""
+        /*
+           neo đầu còn lại
+        */
+
+        frameStartX=
+            thumb.x;
+
+        frameStartY=
+            thumb.y;
+
+
+        updateFrame();
+
+
+        statusText(
+            "🤏 Đang kéo khung hologram"
         );
 
-
-    if(type!==currentGesture){
-
-        currentGesture=type;
-
-        changeShape(type);
-
     }
 
+    else{
 
-    statusUI.innerText=
-        "Bàn tay đã khóa • Điều khiển trực tiếp";
+        if(frameActive){
+
+            finishFrame();
+
+        }
+
+    }
 
 });
 
 
 /* =========================================================
-   PARTICLE ANIMATION
+   CAMERA START
 ========================================================= */
-
-let lastTime=
-performance.now();
-
-let fps=60;
-
-
-function animate(){
-
-    requestAnimationFrame(
-        animate
-    );
-
-
-    const now=
-        performance.now();
-
-
-    const dt=
-        Math.min(
-            now-lastTime,
-            50
-        );
-
-
-    lastTime=now;
-
-
-    fps=
-        fps*.95+
-        (1000/Math.max(dt,1))*.05;
-
-
-    /*
-       =========================
-       SMOOTH HAND POSITION
-       =========================
-    */
-
-    smoothX +=
-        (handX-smoothX)*.10;
-
-    smoothY +=
-        (handY-smoothY)*.10;
-
-    smoothDepth +=
-        (handDepth-smoothDepth)*.08;
-
-    smoothRotation +=
-        (handRotation-smoothRotation)*.08;
-
-
-    /*
-       =========================
-       MOVE HOLOGRAM
-       =========================
-    */
-
-
-    /*
-       camera coordinates:
-       x = left/right
-       y = up/down
-    */
-
-    const targetX =
-        (0.5-smoothX)*5;
-
-    const targetY =
-        (0.5-smoothY)*3;
-
-
-    particles.position.x +=
-        (targetX-
-         particles.position.x)*.08;
-
-    particles.position.y +=
-        (targetY-
-         particles.position.y)*.08;
-
-
-    /*
-       =========================
-       DEPTH / ZOOM
-       =========================
-    */
-
-
-    const zoom =
-        THREE.MathUtils.clamp(
-            smoothDepth*5.2,
-            .65,
-            1.8
-        );
-
-
-    particles.scale.x +=
-        (zoom-
-         particles.scale.x)*.07;
-
-    particles.scale.y =
-        particles.scale.x;
-
-    particles.scale.z =
-        particles.scale.x;
-
-
-    /*
-       =========================
-       ROTATE WITH WRIST
-       =========================
-    */
-
-    particles.rotation.z +=
-        (
-            smoothRotation-
-            particles.rotation.z
-        )*.08;
-
-
-    /*
-       =========================
-       PARTICLES
-       =========================
-    */
-
-    const pos =
-        geometry
-        .attributes
-        .position
-        .array;
-
-
-    for(
-        let i=0;
-        i<particleCount;
-        i++
-    ){
-
-        const j=i*3;
-
-
-        /*
-           normal attraction
-        */
-
-        pos[j] +=
-            (
-                targets[j]-
-                pos[j]
-            )*.055;
-
-        pos[j+1] +=
-            (
-                targets[j+1]-
-                pos[j+1]
-            )*.055;
-
-        pos[j+2] +=
-            (
-                targets[j+2]-
-                pos[j+2]
-            )*.055;
-
-
-        /*
-           hologram floating
-        */
-
-        pos[j+1] +=
-            Math.sin(
-                now*.001+
-                i*.013
-            )*.0007;
-
-
-        /*
-           PINCH
-           hút hạt vào ngón tay
-        */
-
-        if(pinch){
-
-            const tx =
-                (indexX-.5)*5;
-
-            const ty =
-                -(indexY-.5)*3;
-
-
-            const dx =
-                tx-pos[j];
-
-            const dy =
-                ty-pos[j+1];
-
-
-            pos[j] +=
-                dx*.012;
-
-            pos[j+1] +=
-                dy*.012;
-
-        }
-
-    }
-
-
-    geometry
-    .attributes
-    .position
-    .needsUpdate=true;
-
-
-    /*
-       =========================
-       HẠT THEO NGÓN TRỎ
-       =========================
-    */
-
-    if(
-        handDetected &&
-        currentGesture==="explode"
-    ){
-
-        const tx =
-            (indexX-.5)*5;
-
-        const ty =
-            -(indexY-.5)*3;
-
-
-        /*
-           chỉ tác động một phần
-           để tạo "đuôi năng lượng"
-        */
-
-        for(
-            let i=0;
-            i<Math.min(
-                particleCount,
-                2500
-            );
-            i+=2
-        ){
-
-            const j=i*3;
-
-            pos[j] +=
-                (
-                    tx-pos[j]
-                )*.006;
-
-            pos[j+1] +=
-                (
-                    ty-pos[j+1]
-                )*.006;
-
-        }
-
-    }
-
-
-    /*
-       =========================
-       FPS AUTO OPTIMIZATION
-       =========================
-    */
-
-    if(
-        fps<30 &&
-        particleCount>6000
-    ){
-
-        particleCount-=500;
-
-    }
-
-
-    if(
-        fps>52 &&
-        particleCount<12000
-    ){
-
-        particleCount+=250;
-
-    }
-
-
-    /*
-       =========================
-       RENDER
-       =========================
-    */
-
-    renderer.render(
-        scene,
-        camera3D
-    );
-
-}
-
-
-/* =========================================================
-   START ANIMATION
-========================================================= */
-
-changeShape("sphere");
-
-animate();
-
-
-/* =========================================================
-   CAMERA
-========================================================= */
-
-const video =
-document.getElementById(
-    "camera"
-);
-
 
 document
 .getElementById("start")
@@ -1410,63 +1073,59 @@ async()=>{
 
     try{
 
-        statusUI.innerText=
-            "Đang mở camera...";
+        const stream=
+            await navigator
+            .mediaDevices
+            .getUserMedia({
 
+                video:{
 
-        const stream =
-        await navigator
-        .mediaDevices
-        .getUserMedia({
+                    facingMode:"user",
 
-            video:{
+                    width:{
+                        ideal:640
+                    },
 
-                facingMode:"user",
+                    height:{
+                        ideal:480
+                    },
 
-                width:{
-                    ideal:640
+                    frameRate:{
+                        ideal:24,
+                        max:30
+                    }
+
                 },
 
-                height:{
-                    ideal:480
-                },
+                audio:false
 
-                frameRate:{
-                    ideal:24,
-                    max:30
-                }
-
-            },
-
-            audio:false
-
-        });
+            });
 
 
         video.srcObject=
             stream;
 
 
-        const cam =
-        new Camera(
-            video,
-            {
+        const cam=
+            new Camera(
+                video,
+                {
 
-                onFrame:
-                async()=>{
+                    onFrame:
+                    async()=>{
 
-                    await hands.send({
-                        image:video
-                    });
+                        await hands.send({
+                            image:video
+                        });
 
-                },
+                    },
 
-                width:640,
+                    width:640,
 
-                height:480
+                    height:480
 
-            }
-        );
+                }
+            );
 
 
         cam.start();
@@ -1477,30 +1136,82 @@ async()=>{
         .style.display="none";
 
 
-        statusUI.innerText=
-            "Camera đã bật • Đưa tay vào khung";
-
+        statusText(
+            "Camera hoạt động • Đưa tay vào"
+        );
 
     }
 
-    catch(error){
+    catch(e){
 
-        console.error(error);
-
+        console.error(e);
 
         alert(
             "Không mở được camera.\n\n"+
-            "Hãy cho phép trình duyệt sử dụng camera "+
-            "và đảm bảo trang web chạy bằng HTTPS."
+            "Hãy cho phép quyền Camera "+
+            "và sử dụng HTTPS."
         );
-
-
-        statusUI.innerText=
-            "Không thể mở camera";
 
     }
 
 });
+
+
+/* =========================================================
+   ANIMATION
+========================================================= */
+
+function animate(){
+
+    requestAnimationFrame(
+        animate
+    );
+
+
+    /*
+       nền chuyển động
+    */
+
+    backgroundParticles.rotation.y+=
+        .0002;
+
+
+    /*
+       các khớp tay nhấp nháy
+    */
+
+    const pulse=
+        .045+
+        Math.sin(
+            performance.now()*.005
+        )*.015;
+
+
+    joints.forEach(
+        j=>{
+            j.scale.setScalar(
+                pulse/.055
+            );
+        }
+    );
+
+
+    /*
+       frame
+    */
+
+    updateFrame();
+
+
+    renderer.render(
+        scene,
+        camera
+    );
+
+}
+
+
+animate();
 
 
 /* =========================================================
@@ -1511,13 +1222,11 @@ window.addEventListener(
 "resize",
 ()=>{
 
-    camera3D.aspect=
+    camera.aspect=
         innerWidth/
         innerHeight;
 
-
-    camera3D.updateProjectionMatrix();
-
+    camera.updateProjectionMatrix();
 
     renderer.setSize(
         innerWidth,
