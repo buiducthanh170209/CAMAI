@@ -5,7 +5,7 @@
 <meta name="viewport"
       content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 
-<title>TANK Hologram</title>
+<title>TANK Hologram Hand Control</title>
 
 <style>
 *{
@@ -33,11 +33,11 @@ html,body{
     position:fixed;
     right:15px;
     bottom:15px;
-    width:150px;
-    height:110px;
+    width:160px;
+    height:120px;
     object-fit:cover;
-    border-radius:14px;
-    opacity:.32;
+    border-radius:15px;
+    opacity:.30;
     transform:scaleX(-1);
     border:1px solid #00ffff;
     z-index:5;
@@ -66,10 +66,10 @@ html,body{
     font-size:18px;
 }
 
-#fps{
-    margin-top:5px;
+#status{
+    margin-top:6px;
     font-size:12px;
-    opacity:.7;
+    opacity:.75;
 }
 
 #start{
@@ -85,14 +85,26 @@ html,body{
     border-radius:15px;
 
     color:#00ffff;
-    background:rgba(0,15,25,.9);
+    background:rgba(0,15,25,.92);
 
     font-size:18px;
     font-weight:bold;
 
     box-shadow:
-        0 0 12px #00ffff,
-        inset 0 0 15px rgba(0,255,255,.15);
+        0 0 15px #00ffff,
+        inset 0 0 20px rgba(0,255,255,.15);
+}
+
+.hint{
+    position:fixed;
+    bottom:145px;
+    left:50%;
+    transform:translateX(-50%);
+
+    color:rgba(0,255,255,.6);
+    font-size:12px;
+    text-align:center;
+    pointer-events:none;
 }
 </style>
 </head>
@@ -116,45 +128,65 @@ html,body{
         Đưa tay trước camera...
     </div>
 
-    <div id="fps">
-        FPS: --
+    <div id="status">
+        Chưa kết nối camera
     </div>
 
 </div>
 
+<div class="hint">
+    Di chuyển tay • 🤏 Pinch • ✋ Đẩy tay • Xoay cổ tay
+</div>
+
 <button id="start">
-    🎥 BẬT CAMERA
+    🎥 BẬT HOLOGRAM
 </button>
 
 
-<!-- THREE.JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<!-- MEDIAPIPE -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 
 <script>
 
-/* =====================================================
-   CẤU HÌNH HIỆU NĂNG
-===================================================== */
+/* =========================================================
+   TANK HOLOGRAM
+   Hand-controlled particle system
+========================================================= */
 
-const MAX_PARTICLES = 12000;
 
-let PARTICLES = MAX_PARTICLES;
+/* =========================
+   CONFIG
+========================= */
+
+const MAX_PARTICLES = 14000;
+
+let particleCount = 12000;
 
 let currentShape = "sphere";
 
-let lastGesture = "";
+let currentGesture = "";
 
-let lastChange = 0;
+let handDetected = false;
 
 
-/* =====================================================
-   THREE.JS
-===================================================== */
+/* =========================
+   UI
+========================= */
+
+const gestureUI =
+document.getElementById("gesture");
+
+const statusUI =
+document.getElementById("status");
+
+
+/* =========================
+   THREE
+========================= */
 
 const canvas =
 document.getElementById("canvas");
@@ -162,11 +194,12 @@ document.getElementById("canvas");
 const scene =
 new THREE.Scene();
 
+
 const camera3D =
 new THREE.PerspectiveCamera(
     65,
     innerWidth / innerHeight,
-    .1,
+    0.1,
     100
 );
 
@@ -175,11 +208,16 @@ camera3D.position.z = 6;
 
 const renderer =
 new THREE.WebGLRenderer({
+
     canvas:canvas,
+
     antialias:false,
-    alpha:false,
-    powerPreference:"high-performance"
+
+    powerPreference:
+        "high-performance"
+
 });
+
 
 renderer.setPixelRatio(
     Math.min(
@@ -194,34 +232,37 @@ renderer.setSize(
 );
 
 
-/* =====================================================
-   HẠT
-===================================================== */
+/* =========================
+   PARTICLES
+========================= */
 
 const positions =
-new Float32Array(MAX_PARTICLES * 3);
+new Float32Array(
+    MAX_PARTICLES * 3
+);
 
 const targets =
-new Float32Array(MAX_PARTICLES * 3);
+new Float32Array(
+    MAX_PARTICLES * 3
+);
 
-const velocities =
-new Float32Array(MAX_PARTICLES * 3);
 
-
-/* tạo vị trí ban đầu */
-
-for(let i=0;i<MAX_PARTICLES;i++){
+for(
+    let i=0;
+    i<MAX_PARTICLES;
+    i++
+){
 
     const j=i*3;
 
     positions[j] =
-        (Math.random()-.5)*5;
+        (Math.random()-.5)*4;
 
     positions[j+1] =
-        (Math.random()-.5)*5;
+        (Math.random()-.5)*4;
 
     positions[j+2] =
-        (Math.random()-.5)*5;
+        (Math.random()-.5)*4;
 
     targets[j] =
         positions[j];
@@ -231,6 +272,7 @@ for(let i=0;i<MAX_PARTICLES;i++){
 
     targets[j+2] =
         positions[j+2];
+
 }
 
 
@@ -247,20 +289,20 @@ geometry.setAttribute(
 );
 
 
-/* =====================================================
-   MATERIAL
-===================================================== */
+/* =========================
+   PARTICLE MATERIAL
+========================= */
 
 const material =
 new THREE.PointsMaterial({
 
     color:0x00ffff,
 
-    size:.026,
+    size:.025,
 
     transparent:true,
 
-    opacity:.9,
+    opacity:.92,
 
     depthWrite:false,
 
@@ -270,43 +312,113 @@ new THREE.PointsMaterial({
 });
 
 
-const particleSystem =
+const particles =
 new THREE.Points(
     geometry,
     material
 );
 
 
-scene.add(
-    particleSystem
-);
+scene.add(particles);
 
 
-/* =====================================================
-   HÌNH CẦU
-===================================================== */
+/* =========================================================
+   SHAPE GENERATORS
+========================================================= */
+
+
+/* ---------- SPHERE ---------- */
 
 function spherePoint(){
 
-    const u =
-        Math.random();
-
-    const v =
-        Math.random();
-
     const theta =
-        2*Math.PI*u;
+        Math.random() *
+        Math.PI * 2;
 
     const phi =
         Math.acos(
-            2*v-1
+            2*Math.random()-1
         );
 
     const radius =
-        1.65 *
+        1.55 *
         Math.cbrt(
             Math.random()
         );
+
+    return {
+
+        x:
+        radius *
+        Math.sin(phi) *
+        Math.cos(theta),
+
+        y:
+        radius *
+        Math.sin(phi) *
+        Math.sin(theta),
+
+        z:
+        radius *
+        Math.cos(phi)
+
+    };
+
+}
+
+
+/* ---------- CUBE ---------- */
+
+function cubePoint(){
+
+    const s=1.6;
+
+    const face =
+        Math.floor(
+            Math.random()*6
+        );
+
+    let x =
+        (Math.random()-.5)*s*2;
+
+    let y =
+        (Math.random()-.5)*s*2;
+
+    let z =
+        (Math.random()-.5)*s*2;
+
+
+    if(face===0) x=s;
+    if(face===1) x=-s;
+
+    if(face===2) y=s;
+    if(face===3) y=-s;
+
+    if(face===4) z=s;
+    if(face===5) z=-s;
+
+
+    return{x,y,z};
+
+}
+
+
+/* ---------- EXPLOSION ---------- */
+
+function explosionPoint(){
+
+    const theta =
+        Math.random() *
+        Math.PI * 2;
+
+    const phi =
+        Math.acos(
+            2*Math.random()-1
+        );
+
+    const radius =
+        1.2+
+        Math.random()*3.2;
 
     return {
 
@@ -325,94 +437,17 @@ function spherePoint(){
         Math.cos(phi)
 
     };
+
 }
 
 
-/* =====================================================
-   HÌNH VUÔNG 3D
-===================================================== */
-
-function cubePoint(){
-
-    const s=1.7;
-
-    let x,y,z;
-
-    const face =
-        Math.floor(
-            Math.random()*6
-        );
-
-    x =
-        (Math.random()-.5)*s*2;
-
-    y =
-        (Math.random()-.5)*s*2;
-
-    z =
-        (Math.random()-.5)*s*2;
-
-    if(face===0)x=s;
-    if(face===1)x=-s;
-
-    if(face===2)y=s;
-    if(face===3)y=-s;
-
-    if(face===4)z=s;
-    if(face===5)z=-s;
-
-    return{x,y,z};
-}
-
-
-/* =====================================================
-   NỞ RA
-===================================================== */
-
-function explosionPoint(){
-
-    const theta =
-        Math.random()*
-        Math.PI*2;
-
-    const phi =
-        Math.acos(
-            2*Math.random()-1
-        );
-
-    const radius =
-        1.2+
-        Math.random()*3;
-
-    return{
-
-        x:
-        radius*
-        Math.sin(phi)*
-        Math.cos(theta),
-
-        y:
-        radius*
-        Math.sin(phi)*
-        Math.sin(theta),
-
-        z:
-        radius*
-        Math.cos(phi)
-
-    };
-}
-
-
-/* =====================================================
-   TRÁI TIM
-===================================================== */
+/* ---------- HEART ---------- */
 
 function heartPoint(){
 
     const t =
-        Math.random()*
-        Math.PI*2;
+        Math.random() *
+        Math.PI * 2;
 
     const r =
         Math.sqrt(
@@ -431,7 +466,7 @@ function heartPoint(){
         -2*Math.cos(3*t)
         -Math.cos(4*t);
 
-    return{
+    return {
 
         x:x*r*.115,
 
@@ -441,12 +476,13 @@ function heartPoint(){
         (Math.random()-.5)*.45
 
     };
+
 }
 
 
-/* =====================================================
-   LÁ CỜ VIỆT NAM
-===================================================== */
+/* =========================================================
+   VIETNAM FLAG
+========================================================= */
 
 function flagPoint(){
 
@@ -455,19 +491,17 @@ function flagPoint(){
     const height=2.5;
 
     let x =
-        (Math.random()-.5)*
-        width;
+        (Math.random()-.5)*width;
 
     let y =
-        (Math.random()-.5)*
-        height;
+        (Math.random()-.5)*height;
 
     let z =
         (Math.random()-.5)*.08;
 
 
     /*
-       tạo vùng ngôi sao
+       Approximate five-point star region
     */
 
     const dx=x;
@@ -476,12 +510,11 @@ function flagPoint(){
 
     const distance =
         Math.sqrt(
-            dx*dx+
-            dy*dy
+            dx*dx+dy*dy
         );
 
 
-    if(distance < .72){
+    if(distance<.75){
 
         const angle =
             Math.atan2(
@@ -489,20 +522,16 @@ function flagPoint(){
                 dx
             );
 
-        /*
-           5 cánh đơn giản
-        */
-
-        const wave =
+        const star =
             Math.cos(
                 angle*5
             );
 
-        if(wave>.05){
+
+        if(star>0.08){
 
             const r =
-                .75*
-                Math.random();
+                Math.random()*.72;
 
             x =
                 Math.cos(angle)*r;
@@ -512,24 +541,21 @@ function flagPoint(){
 
             z=.12;
 
-            return{
-                x,y,z
-            };
         }
 
     }
 
-    return{
-        x,y,z
-    };
+
+    return{x,y,z};
+
 }
 
 
-/* =====================================================
-   TẠO CHỮ TANK
-===================================================== */
+/* =========================================================
+   TANK TEXT
+========================================================= */
 
-function makeTankPoints(){
+function makeTank(){
 
     const c =
         document.createElement(
@@ -540,10 +566,12 @@ function makeTankPoints(){
 
     c.height=300;
 
+
     const ctx =
         c.getContext("2d");
 
-    ctx.fillStyle="#fff";
+
+    ctx.fillStyle="white";
 
     ctx.font=
         "bold 220px Arial";
@@ -552,6 +580,7 @@ function makeTankPoints(){
 
     ctx.textBaseline="middle";
 
+
     ctx.fillText(
         "TANK",
         400,
@@ -559,12 +588,12 @@ function makeTankPoints(){
     );
 
 
-    const image =
+    const data =
         ctx.getImageData(
             0,
             0,
-            c.width,
-            c.height
+            800,
+            300
         ).data;
 
 
@@ -573,22 +602,22 @@ function makeTankPoints(){
 
     for(
         let y=0;
-        y<c.height;
+        y<300;
         y+=5
     ){
 
         for(
             let x=0;
-            x<c.width;
+            x<800;
             x+=5
         ){
 
             const index =
-                (y*c.width+x)*4;
+                (y*800+x)*4;
 
 
             if(
-                image[index+3]>100
+                data[index+3]>100
             ){
 
                 points.push({
@@ -600,7 +629,7 @@ function makeTankPoints(){
                     -(y-150)/85,
 
                     z:
-                    (Math.random()-.5)*.3
+                    (Math.random()-.5)*.25
 
                 });
 
@@ -610,23 +639,27 @@ function makeTankPoints(){
 
     }
 
+
     return points;
+
 }
 
 
 const tankPoints =
-makeTankPoints();
+makeTank();
 
 
-/* =====================================================
-   ĐỔI HÌNH
-===================================================== */
+/* =========================================================
+   CHANGE SHAPE
+========================================================= */
 
 function changeShape(type){
 
     if(
         type===currentShape
-    )return;
+    ){
+        return;
+    }
 
 
     currentShape=type;
@@ -634,20 +667,21 @@ function changeShape(type){
 
     for(
         let i=0;
-        i<PARTICLES;
+        i<particleCount;
         i++
     ){
 
         let p;
 
-        if(type==="explode")
-            p=explosionPoint();
+
+        if(type==="sphere")
+            p=spherePoint();
 
         else if(type==="cube")
             p=cubePoint();
 
-        else if(type==="sphere")
-            p=spherePoint();
+        else if(type==="explode")
+            p=explosionPoint();
 
         else if(type==="heart")
             p=heartPoint();
@@ -671,29 +705,13 @@ function changeShape(type){
 
         targets[j+2]=p.z;
 
-
-        /*
-           tạo lực chuyển động
-        */
-
-        velocities[j] =
-            (Math.random()-.5)*.05;
-
-        velocities[j+1] =
-            (Math.random()-.5)*.05;
-
-        velocities[j+2] =
-            (Math.random()-.5)*.05;
-
     }
 
-
-    /* màu */
 
     if(type==="heart"){
 
         material.color.setHex(
-            0xff1493
+            0xff1595
         );
 
     }
@@ -717,188 +735,39 @@ function changeShape(type){
 }
 
 
-/* =====================================================
-   ANIMATION
-===================================================== */
+/* =========================================================
+   HAND STATE
+========================================================= */
 
-let lastFrame =
-performance.now();
+let handX=.5;
 
-let fps=60;
+let handY=.5;
 
-function animate(){
+let handDepth=.5;
 
-    requestAnimationFrame(
-        animate
-    );
+let handRotation=0;
 
+let pinch=false;
 
-    const now =
-        performance.now();
+let indexX=.5;
 
+let indexY=.5;
 
-    /*
-       FPS
-    */
 
-    const delta =
-        now-lastFrame;
+/* smoothing */
 
-    lastFrame=now;
+let smoothX=.5;
 
+let smoothY=.5;
 
-    if(delta>0){
+let smoothDepth=.5;
 
-        fps =
-            fps*.95+
-            (1000/delta)*.05;
+let smoothRotation=0;
 
-    }
 
-
-    document.getElementById(
-        "fps"
-    ).innerText =
-        "FPS: "+
-        Math.round(fps)+
-        " | HẠT: "+
-        PARTICLES;
-
-
-    /*
-       nếu FPS thấp
-       tự giảm hạt
-    */
-
-    if(
-        fps<30 &&
-        PARTICLES>6000
-    ){
-
-        PARTICLES=
-            Math.max(
-                6000,
-                PARTICLES-1000
-            );
-
-    }
-
-
-    /*
-       cập nhật hạt
-    */
-
-    const pos =
-        geometry.attributes
-        .position.array;
-
-
-    for(
-        let i=0;
-        i<PARTICLES;
-        i++
-    ){
-
-        const j=i*3;
-
-
-        /*
-           chuyển động mượt
-        */
-
-        pos[j] +=
-            (targets[j]-
-             pos[j])*.065;
-
-
-        pos[j+1] +=
-            (targets[j+1]-
-             pos[j+1])*.065;
-
-
-        pos[j+2] +=
-            (targets[j+2]-
-             pos[j+2])*.065;
-
-
-        /*
-           chuyển động hologram nhẹ
-        */
-
-        pos[j+1] +=
-            Math.sin(
-                now*.001+
-                i*.01
-            )*.0008;
-
-    }
-
-
-    geometry.attributes
-        .position
-        .needsUpdate=true;
-
-
-    /*
-       xoay rất nhẹ
-    */
-
-    particleSystem.rotation.y +=
-        .0007;
-
-
-    renderer.render(
-        scene,
-        camera3D
-    );
-
-}
-
-
-animate();
-
-
-/* =====================================================
-   MEDIAPIPE HANDS
-===================================================== */
-
-const video =
-document.getElementById(
-    "camera"
-);
-
-const gestureText =
-document.getElementById(
-    "gesture"
-);
-
-
-const hands =
-new Hands({
-
-    locateFile:
-    file =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-
-});
-
-
-hands.setOptions({
-
-    maxNumHands:1,
-
-    modelComplexity:0,
-
-    minDetectionConfidence:.65,
-
-    minTrackingConfidence:.65
-
-});
-
-
-/* =====================================================
-   ĐẾM NGÓN
-===================================================== */
+/* =========================================================
+   COUNT FINGERS
+========================================================= */
 
 function countFingers(l){
 
@@ -906,15 +775,20 @@ function countFingers(l){
 
 
     /*
-       ngón cái
+       thumb
     */
+
+    const thumbTip=l[4];
+
+    const thumbIP=l[3];
+
 
     if(
         Math.abs(
-            l[4].x-l[17].x
+            thumbTip.x-l[17].x
         ) >
         Math.abs(
-            l[3].x-l[17].x
+            thumbIP.x-l[17].x
         )
     ){
 
@@ -924,7 +798,7 @@ function countFingers(l){
 
 
     /*
-       4 ngón còn lại
+       other fingers
     */
 
     const tips=[
@@ -955,12 +829,82 @@ function countFingers(l){
 
 
     return count;
+
 }
 
 
-/* =====================================================
-   NHẬN DIỆN
-===================================================== */
+/* =========================================================
+   PINCH DETECTION
+========================================================= */
+
+function isPinching(l){
+
+    const dx =
+        l[4].x-l[8].x;
+
+    const dy =
+        l[4].y-l[8].y;
+
+
+    const distance =
+        Math.sqrt(
+            dx*dx+
+            dy*dy
+        );
+
+
+    return distance<.075;
+
+}
+
+
+/* =========================================================
+   HAND ROTATION
+========================================================= */
+
+function getHandRotation(l){
+
+    const dx =
+        l[17].x-l[5].x;
+
+    const dy =
+        l[17].y-l[5].y;
+
+
+    return Math.atan2(
+        dy,
+        dx
+    );
+
+}
+
+
+/* =========================================================
+   MEDIAPIPE
+========================================================= */
+
+const hands =
+new Hands({
+
+    locateFile:
+    file =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+
+});
+
+
+hands.setOptions({
+
+    maxNumHands:1,
+
+    modelComplexity:0,
+
+    minDetectionConfidence:.65,
+
+    minTrackingConfidence:.65
+
+});
+
 
 hands.onResults(
 results=>{
@@ -970,103 +914,493 @@ results=>{
         results.multiHandLandmarks.length===0
     ){
 
-        gestureText.innerText=
-            "Đưa tay trước camera...";
+        handDetected=false;
+
+        statusUI.innerText=
+            "Đang tìm bàn tay...";
 
         return;
 
     }
 
 
-    const landmarks =
+    handDetected=true;
+
+
+    const l =
         results.multiHandLandmarks[0];
 
 
-    const fingers =
-        countFingers(
-            landmarks
+    /* =========================
+       POSITION
+    ========================= */
+
+    handX=l[9].x;
+
+    handY=l[9].y;
+
+
+    /*
+       depth approximation
+       distance wrist -> middle MCP
+    */
+
+    const dx =
+        l[5].x-l[17].x;
+
+    const dy =
+        l[5].y-l[17].y;
+
+
+    const palmSize =
+        Math.sqrt(
+            dx*dx+dy*dy
         );
 
 
-    let gesture="";
+    handDepth =
+        THREE.MathUtils.clamp(
+            palmSize,
+            .10,
+            .35
+        );
+
+
+    /* =========================
+       ROTATION
+    ========================= */
+
+    handRotation =
+        getHandRotation(l);
+
+
+    /* =========================
+       INDEX
+    ========================= */
+
+    indexX=l[8].x;
+
+    indexY=l[8].y;
+
+
+    /* =========================
+       PINCH
+    ========================= */
+
+    pinch=
+        isPinching(l);
+
+
+    /* =========================
+       GESTURE
+    ========================= */
+
+    const fingers =
+        countFingers(l);
+
+
+    let type="";
+
+    let label="";
 
 
     if(fingers===0){
 
-        gesture="✊ TANK";
+        type="tank";
 
-        if(lastGesture!=="tank")
-            changeShape("tank");
-
-        lastGesture="tank";
+        label="✊ TANK";
 
     }
 
     else if(fingers===1){
 
-        gesture="☝️ HẠT NỞ";
+        type="explode";
 
-        if(lastGesture!=="explode")
-            changeShape("explode");
-
-        lastGesture="explode";
+        label="☝️ HẠT NỞ";
 
     }
 
     else if(fingers===2){
 
-        gesture="✌️ HÌNH VUÔNG";
+        type="cube";
 
-        if(lastGesture!=="cube")
-            changeShape("cube");
-
-        lastGesture="cube";
+        label="✌️ HÌNH VUÔNG";
 
     }
 
     else if(fingers===3){
 
-        gesture="🤟 HÌNH CẦU";
+        type="sphere";
 
-        if(lastGesture!=="sphere")
-            changeShape("sphere");
-
-        lastGesture="sphere";
+        label="🤟 HÌNH CẦU";
 
     }
 
     else if(fingers===4){
 
-        gesture="🖖 TRÁI TIM";
+        type="heart";
 
-        if(lastGesture!=="heart")
-            changeShape("heart");
-
-        lastGesture="heart";
+        label="🖖 TRÁI TIM";
 
     }
 
     else if(fingers===5){
 
-        gesture="🖐️ VIỆT NAM 🇻🇳";
+        type="flag";
 
-        if(lastGesture!=="flag")
-            changeShape("flag");
-
-        lastGesture="flag";
+        label="🖐️ VIỆT NAM 🇻🇳";
 
     }
 
 
-    gestureText.innerText=
-        gesture;
+    gestureUI.innerText=
+        label+
+        (
+            pinch
+            ?"  •  🤏 PINCH"
+            :""
+        );
+
+
+    if(type!==currentGesture){
+
+        currentGesture=type;
+
+        changeShape(type);
+
+    }
+
+
+    statusUI.innerText=
+        "Bàn tay đã khóa • Điều khiển trực tiếp";
 
 });
 
 
-/* =====================================================
+/* =========================================================
+   PARTICLE ANIMATION
+========================================================= */
+
+let lastTime=
+performance.now();
+
+let fps=60;
+
+
+function animate(){
+
+    requestAnimationFrame(
+        animate
+    );
+
+
+    const now=
+        performance.now();
+
+
+    const dt=
+        Math.min(
+            now-lastTime,
+            50
+        );
+
+
+    lastTime=now;
+
+
+    fps=
+        fps*.95+
+        (1000/Math.max(dt,1))*.05;
+
+
+    /*
+       =========================
+       SMOOTH HAND POSITION
+       =========================
+    */
+
+    smoothX +=
+        (handX-smoothX)*.10;
+
+    smoothY +=
+        (handY-smoothY)*.10;
+
+    smoothDepth +=
+        (handDepth-smoothDepth)*.08;
+
+    smoothRotation +=
+        (handRotation-smoothRotation)*.08;
+
+
+    /*
+       =========================
+       MOVE HOLOGRAM
+       =========================
+    */
+
+
+    /*
+       camera coordinates:
+       x = left/right
+       y = up/down
+    */
+
+    const targetX =
+        (0.5-smoothX)*5;
+
+    const targetY =
+        (0.5-smoothY)*3;
+
+
+    particles.position.x +=
+        (targetX-
+         particles.position.x)*.08;
+
+    particles.position.y +=
+        (targetY-
+         particles.position.y)*.08;
+
+
+    /*
+       =========================
+       DEPTH / ZOOM
+       =========================
+    */
+
+
+    const zoom =
+        THREE.MathUtils.clamp(
+            smoothDepth*5.2,
+            .65,
+            1.8
+        );
+
+
+    particles.scale.x +=
+        (zoom-
+         particles.scale.x)*.07;
+
+    particles.scale.y =
+        particles.scale.x;
+
+    particles.scale.z =
+        particles.scale.x;
+
+
+    /*
+       =========================
+       ROTATE WITH WRIST
+       =========================
+    */
+
+    particles.rotation.z +=
+        (
+            smoothRotation-
+            particles.rotation.z
+        )*.08;
+
+
+    /*
+       =========================
+       PARTICLES
+       =========================
+    */
+
+    const pos =
+        geometry
+        .attributes
+        .position
+        .array;
+
+
+    for(
+        let i=0;
+        i<particleCount;
+        i++
+    ){
+
+        const j=i*3;
+
+
+        /*
+           normal attraction
+        */
+
+        pos[j] +=
+            (
+                targets[j]-
+                pos[j]
+            )*.055;
+
+        pos[j+1] +=
+            (
+                targets[j+1]-
+                pos[j+1]
+            )*.055;
+
+        pos[j+2] +=
+            (
+                targets[j+2]-
+                pos[j+2]
+            )*.055;
+
+
+        /*
+           hologram floating
+        */
+
+        pos[j+1] +=
+            Math.sin(
+                now*.001+
+                i*.013
+            )*.0007;
+
+
+        /*
+           PINCH
+           hút hạt vào ngón tay
+        */
+
+        if(pinch){
+
+            const tx =
+                (indexX-.5)*5;
+
+            const ty =
+                -(indexY-.5)*3;
+
+
+            const dx =
+                tx-pos[j];
+
+            const dy =
+                ty-pos[j+1];
+
+
+            pos[j] +=
+                dx*.012;
+
+            pos[j+1] +=
+                dy*.012;
+
+        }
+
+    }
+
+
+    geometry
+    .attributes
+    .position
+    .needsUpdate=true;
+
+
+    /*
+       =========================
+       HẠT THEO NGÓN TRỎ
+       =========================
+    */
+
+    if(
+        handDetected &&
+        currentGesture==="explode"
+    ){
+
+        const tx =
+            (indexX-.5)*5;
+
+        const ty =
+            -(indexY-.5)*3;
+
+
+        /*
+           chỉ tác động một phần
+           để tạo "đuôi năng lượng"
+        */
+
+        for(
+            let i=0;
+            i<Math.min(
+                particleCount,
+                2500
+            );
+            i+=2
+        ){
+
+            const j=i*3;
+
+            pos[j] +=
+                (
+                    tx-pos[j]
+                )*.006;
+
+            pos[j+1] +=
+                (
+                    ty-pos[j+1]
+                )*.006;
+
+        }
+
+    }
+
+
+    /*
+       =========================
+       FPS AUTO OPTIMIZATION
+       =========================
+    */
+
+    if(
+        fps<30 &&
+        particleCount>6000
+    ){
+
+        particleCount-=500;
+
+    }
+
+
+    if(
+        fps>52 &&
+        particleCount<12000
+    ){
+
+        particleCount+=250;
+
+    }
+
+
+    /*
+       =========================
+       RENDER
+       =========================
+    */
+
+    renderer.render(
+        scene,
+        camera3D
+    );
+
+}
+
+
+/* =========================================================
+   START ANIMATION
+========================================================= */
+
+changeShape("sphere");
+
+animate();
+
+
+/* =========================================================
    CAMERA
-===================================================== */
+========================================================= */
+
+const video =
+document.getElementById(
+    "camera"
+);
+
 
 document
 .getElementById("start")
@@ -1076,11 +1410,17 @@ async()=>{
 
     try{
 
+        statusUI.innerText=
+            "Đang mở camera...";
+
+
         const stream =
-        await navigator.mediaDevices
+        await navigator
+        .mediaDevices
         .getUserMedia({
 
             video:{
+
                 facingMode:"user",
 
                 width:{
@@ -1137,34 +1477,47 @@ async()=>{
         .style.display="none";
 
 
-    }catch(error){
+        statusUI.innerText=
+            "Camera đã bật • Đưa tay vào khung";
 
-        alert(
-            "Không thể mở camera.\n\n"+
-            "Hãy cho phép trình duyệt sử dụng camera "+
-            "và đảm bảo website chạy bằng HTTPS."
-        );
+
+    }
+
+    catch(error){
 
         console.error(error);
+
+
+        alert(
+            "Không mở được camera.\n\n"+
+            "Hãy cho phép trình duyệt sử dụng camera "+
+            "và đảm bảo trang web chạy bằng HTTPS."
+        );
+
+
+        statusUI.innerText=
+            "Không thể mở camera";
 
     }
 
 });
 
 
-/* =====================================================
+/* =========================================================
    RESIZE
-===================================================== */
+========================================================= */
 
 window.addEventListener(
 "resize",
 ()=>{
 
-    camera3D.aspect =
+    camera3D.aspect=
         innerWidth/
         innerHeight;
 
+
     camera3D.updateProjectionMatrix();
+
 
     renderer.setSize(
         innerWidth,
