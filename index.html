@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cyber Blaster - 2 Tay</title>
+  <title>Neon Fruit Ninja - 2 Tay</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #03010a;
+      background: #0a0510;
       color: white;
       font-family: 'Segoe UI', system-ui, sans-serif;
       overflow: hidden;
@@ -37,6 +37,18 @@
       color: #00f0ff;
       backdrop-filter: blur(8px);
     }
+    #combo {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px;
+      color: #ffff00;
+      text-shadow: 0 0 15px #ff0;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 10;
+    }
     #status {
       position: absolute;
       bottom: 20px;
@@ -53,18 +65,18 @@
       position: absolute;
       bottom: 18px;
       right: 18px;
-      width: 190px;
-      height: 142px;
+      width: 180px;
+      height: 135px;
       border: 2px solid #00f0ff;
       border-radius: 12px;
       transform: scaleX(-1);
       z-index: 20;
-      opacity: 0.9;
+      opacity: 0.85;
     }
     #startScreen {
       position: absolute;
       inset: 0;
-      background: rgba(3,1,10,0.94);
+      background: rgba(10,5,16,0.94);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -76,20 +88,20 @@
       background: linear-gradient(90deg, #00f0ff, #ff00aa);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
     #startScreen p {
       font-size: 18px;
-      color: #aaa;
-      margin-bottom: 12px;
+      color: #bbb;
+      margin-bottom: 10px;
       text-align: center;
       line-height: 1.6;
     }
     button {
-      margin-top: 25px;
+      margin-top: 28px;
       padding: 15px 50px;
       font-size: 20px;
-      background: linear-gradient(90deg, #00f0ff, #0088ff);
+      background: linear-gradient(90deg, #00f0ff, #ff00aa);
       border: none;
       border-radius: 50px;
       color: #000;
@@ -111,14 +123,15 @@
     <div class="box">Điểm: <span id="score">0</span></div>
     <div class="box">Máu: <span id="lives">5</span></div>
   </div>
-  <div id="status">Tay trái: Di chuyển • Tay phải: Bắn</div>
+  <div id="combo">COMBO x2</div>
+  <div id="status">Dùng 2 tay như kiếm để chém hoa quả</div>
 
   <div id="startScreen">
-    <h1>CYBER BLASTER</h1>
+    <h1>NEON FRUIT NINJA</h1>
     <p>
-      <b>Tay trái</b>: Di chuyển phi thuyền<br>
-      <b>Tay phải</b>: Chụm ngón để bắn<br>
-      Tiêu diệt địch • Tránh đạn
+      Dùng <b>cả 2 tay</b> như 2 thanh kiếm<br>
+      Chém hoa quả • Tránh bom<br>
+      Càng chém nhanh càng nhiều điểm
     </p>
     <button onclick="startGame()">BẮT ĐẦU</button>
   </div>
@@ -131,6 +144,7 @@
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
     const livesEl = document.getElementById('lives');
+    const comboEl = document.getElementById('combo');
     const statusEl = document.getElementById('status');
     const startScreen = document.getElementById('startScreen');
 
@@ -142,23 +156,21 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // Game variables
+    // Game state
     let score = 0;
     let lives = 5;
+    let combo = 0;
     let gameRunning = false;
-    let player = { x: W/2, y: H - 120, w: 50, h: 50 };
-    let bullets = [];
-    let enemies = [];
-    let enemyBullets = [];
+    let fruits = [];
     let particles = [];
-    let lastShot = 0;
-    let lastEnemySpawn = 0;
+    let lastSpawn = 0;
+    let lastComboTime = 0;
 
-    // Hand data
-    let leftHand = null;
-    let rightHand = null;
-    let rightPinching = false;
-    let lastRightPinch = false;
+    // Hands
+    let leftBlade = null;
+    let rightBlade = null;
+    let prevLeft = null;
+    let prevRight = null;
 
     // MediaPipe
     const video = document.getElementById('webcam');
@@ -173,12 +185,11 @@
     });
 
     hands.onResults(results => {
-      leftHand = null;
-      rightHand = null;
-      rightPinching = false;
+      leftBlade = null;
+      rightBlade = null;
 
       if (!results.multiHandLandmarks) {
-        statusEl.textContent = "Không thấy tay - Đưa cả 2 tay vào khung";
+        statusEl.textContent = "Không thấy tay - Đưa cả 2 tay vào khung hình";
         return;
       }
 
@@ -187,26 +198,18 @@
         const label = results.multiHandedness[i].label;
         const isLeft = label === "Left";
 
-        const index = lm[8];
-        const thumb = lm[4];
-        const wrist = lm[0];
+        // Dùng ngón trỏ làm lưỡi kiếm
+        const tip = lm[8];
+        const x = (1 - tip.x) * W;
+        const y = tip.y * H;
 
-        const x = (1 - index.x) * W;
-        const y = index.y * H;
-        const dist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
-        const pinching = dist < 0.05;
-
-        if (isLeft) {
-          leftHand = { x, y };
-        } else {
-          rightHand = { x, y };
-          rightPinching = pinching;
-        }
+        if (isLeft) leftBlade = { x, y };
+        else rightBlade = { x, y };
       }
 
-      if (leftHand && rightHand) statusEl.textContent = "Cả 2 tay đang hoạt động";
-      else if (leftHand) statusEl.textContent = "Tay trái: Di chuyển";
-      else if (rightHand) statusEl.textContent = "Tay phải: Bắn";
+      if (leftBlade && rightBlade) statusEl.textContent = "Cả 2 thanh kiếm sẵn sàng!";
+      else if (leftBlade) statusEl.textContent = "Tay trái đang hoạt động";
+      else if (rightBlade) statusEl.textContent = "Tay phải đang hoạt động";
     });
 
     const camera = new Camera(video, {
@@ -216,15 +219,77 @@
     });
     camera.start();
 
-    // Classes
-    function createParticles(x, y, color, count = 12) {
-      for (let i = 0; i < count; i++) {
+    // Fruit class
+    class Fruit {
+      constructor() {
+        this.x = 100 + Math.random() * (W - 200);
+        this.y = H + 40;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = -18 - Math.random() * 10;
+        this.radius = 32 + Math.random() * 18;
+        this.rotation = 0;
+        this.rotSpeed = (Math.random() - 0.5) * 0.2;
+        this.isBomb = Math.random() < 0.18;
+        this.sliced = false;
+        this.color = this.isBomb ? '#ff2244' : `hsl(${Math.random() * 360}, 100%, 60%)`;
+        this.gravity = 0.35;
+      }
+
+      update() {
+        this.vy += this.gravity;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotSpeed;
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        if (this.isBomb) {
+          // Bom
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#222';
+          ctx.fill();
+          ctx.strokeStyle = '#ff2244';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+          ctx.fillStyle = '#ff2244';
+          ctx.font = 'bold 28px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('💣', 0, 2);
+        } else {
+          // Hoa quả
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.shadowColor = this.color;
+          ctx.shadowBlur = 25;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          // Highlight
+          ctx.beginPath();
+          ctx.arc(-this.radius*0.3, -this.radius*0.3, this.radius*0.3, 0, Math.PI*2);
+          ctx.fillStyle = 'rgba(255,255,255,0.35)';
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function createJuice(x, y, color) {
+      for (let i = 0; i < 16; i++) {
         particles.push({
           x, y,
-          vx: (Math.random()-0.5)*10,
-          vy: (Math.random()-0.5)*10,
-          life: 25 + Math.random()*15,
-          color
+          vx: (Math.random() - 0.5) * 14,
+          vy: (Math.random() - 0.5) * 14,
+          life: 30 + Math.random() * 20,
+          color,
+          size: 3 + Math.random() * 5
         });
       }
     }
@@ -233,212 +298,184 @@
       startScreen.style.display = 'none';
       score = 0;
       lives = 5;
-      bullets = [];
-      enemies = [];
-      enemyBullets = [];
+      combo = 0;
+      fruits = [];
       particles = [];
-      player.x = W/2;
-      player.y = H - 120;
       gameRunning = true;
       scoreEl.textContent = score;
       livesEl.textContent = lives;
+      comboEl.style.opacity = 0;
     }
 
     function gameOver() {
       gameRunning = false;
       startScreen.style.display = 'flex';
       startScreen.querySelector('h1').textContent = 'GAME OVER';
-      startScreen.querySelector('p').innerHTML = `Điểm của bạn: <b>${score}</b><br>Thử lại nhé!`;
+      startScreen.querySelector('p').innerHTML = `Điểm của bạn: <b style="color:#00f0ff">${score}</b>`;
       startScreen.querySelector('button').textContent = 'CHƠI LẠI';
+    }
+
+    function showCombo() {
+      if (combo >= 2) {
+        comboEl.textContent = `COMBO x${combo}`;
+        comboEl.style.opacity = 1;
+        clearTimeout(window.comboTimeout);
+        window.comboTimeout = setTimeout(() => {
+          comboEl.style.opacity = 0;
+        }, 1000);
+      }
+    }
+
+    // Check slice
+    function checkSlice(blade, prevBlade) {
+      if (!blade || !prevBlade) return;
+
+      const speed = Math.hypot(blade.x - prevBlade.x, blade.y - prevBlade.y);
+      if (speed < 12) return; // phải vung đủ nhanh
+
+      for (let i = fruits.length - 1; i >= 0; i--) {
+        const f = fruits[i];
+        if (f.sliced) continue;
+
+        // Khoảng cách từ đường vung đến quả
+        const dist = distToSegment(f.x, f.y, prevBlade.x, prevBlade.y, blade.x, blade.y);
+        if (dist < f.radius + 15) {
+          f.sliced = true;
+
+          if (f.isBomb) {
+            createJuice(f.x, f.y, '#ff2244');
+            lives--;
+            livesEl.textContent = lives;
+            combo = 0;
+            if (lives <= 0) gameOver();
+          } else {
+            createJuice(f.x, f.y, f.color);
+            score += 10 + combo * 2;
+            scoreEl.textContent = score;
+            combo++;
+            lastComboTime = performance.now();
+            showCombo();
+          }
+          fruits.splice(i, 1);
+        }
+      }
+    }
+
+    // Helper: khoảng cách từ điểm đến đoạn thẳng
+    function distToSegment(px, py, x1, y1, x2, y2) {
+      const A = px - x1;
+      const B = py - y1;
+      const C = x2 - x1;
+      const D = y2 - y1;
+      const dot = A * C + B * D;
+      const lenSq = C * C + D * D;
+      let param = lenSq !== 0 ? dot / lenSq : -1;
+      let xx, yy;
+      if (param < 0) { xx = x1; yy = y1; }
+      else if (param > 1) { xx = x2; yy = y2; }
+      else { xx = x1 + param * C; yy = y1 + param * D; }
+      return Math.hypot(px - xx, py - yy);
     }
 
     // Game loop
     function animate(time) {
-      // Background
-      ctx.fillStyle = 'rgba(3,1,10,0.35)';
+      // Background trail
+      ctx.fillStyle = 'rgba(10, 5, 16, 0.3)';
       ctx.fillRect(0, 0, W, H);
 
-      // Stars background
-      ctx.fillStyle = '#ffffff15';
-      for (let i = 0; i < 60; i++) {
-        const sx = (i * 97) % W;
-        const sy = (i * 53 + time*0.05) % H;
-        ctx.fillRect(sx, sy, 2, 2);
-      }
-
       if (gameRunning) {
-        // Player movement - Tay trái
-        if (leftHand) {
-          player.x += (leftHand.x - player.x) * 0.15;
-          player.y += (leftHand.y - player.y) * 0.12;
-        }
-        player.x = Math.max(40, Math.min(W-40, player.x));
-        player.y = Math.max(80, Math.min(H-80, player.y));
-
-        // Shoot - Tay phải
-        if (rightPinching && !lastRightPinch && time - lastShot > 180) {
-          bullets.push({
-            x: player.x,
-            y: player.y - 30,
-            speed: 14
-          });
-          lastShot = time;
-        }
-        lastRightPinch = rightPinching;
-
-        // Update bullets
-        for (let i = bullets.length-1; i >= 0; i--) {
-          bullets[i].y -= bullets[i].speed;
-          if (bullets[i].y < -20) bullets.splice(i, 1);
+        // Spawn fruits
+        if (time - lastSpawn > Math.max(500, 1100 - score * 2)) {
+          fruits.push(new Fruit());
+          if (Math.random() < 0.3) fruits.push(new Fruit()); // đôi khi spawn 2 quả
+          lastSpawn = time;
         }
 
-        // Spawn enemies
-        if (time - lastEnemySpawn > Math.max(700, 1400 - score*3)) {
-          enemies.push({
-            x: 60 + Math.random() * (W-120),
-            y: -40,
-            speed: 2 + Math.random()*1.5 + score*0.01,
-            hp: 1,
-            lastShot: 0
-          });
-          lastEnemySpawn = time;
-        }
+        // Update + draw fruits
+        for (let i = fruits.length - 1; i >= 0; i--) {
+          const f = fruits[i];
+          f.update();
+          f.draw();
 
-        // Update enemies
-        for (let i = enemies.length-1; i >= 0; i--) {
-          const e = enemies[i];
-          e.y += e.speed;
-
-          // Enemy shoot
-          if (time - e.lastShot > 1400 && Math.random() < 0.02) {
-            enemyBullets.push({
-              x: e.x,
-              y: e.y + 20,
-              speed: 5
-            });
-            e.lastShot = time;
-          }
-
-          // Collision with player bullets
-          for (let j = bullets.length-1; j >= 0; j--) {
-            const b = bullets[j];
-            if (Math.hypot(b.x - e.x, b.y - e.y) < 35) {
-              createParticles(e.x, e.y, '#ff00aa');
-              enemies.splice(i, 1);
-              bullets.splice(j, 1);
-              score += 20;
-              scoreEl.textContent = score;
-              break;
+          // Rơi hết màn hình
+          if (f.y > H + 80 && !f.sliced) {
+            if (!f.isBomb) {
+              lives--;
+              livesEl.textContent = lives;
+              combo = 0;
+              if (lives <= 0) gameOver();
             }
+            fruits.splice(i, 1);
           }
-
-          // Enemy hit player
-          if (Math.hypot(e.x - player.x, e.y - player.y) < 45) {
-            createParticles(player.x, player.y, '#ff2244');
-            enemies.splice(i, 1);
-            lives--;
-            livesEl.textContent = lives;
-            if (lives <= 0) gameOver();
-          }
-
-          if (e.y > H + 50) enemies.splice(i, 1);
         }
 
-        // Enemy bullets
-        for (let i = enemyBullets.length-1; i >= 0; i--) {
-          const b = enemyBullets[i];
-          b.y += b.speed;
-          if (Math.hypot(b.x - player.x, b.y - player.y) < 30) {
-            createParticles(player.x, player.y, '#ff2244');
-            enemyBullets.splice(i, 1);
-            lives--;
-            livesEl.textContent = lives;
-            if (lives <= 0) gameOver();
-            continue;
-          }
-          if (b.y > H + 20) enemyBullets.splice(i, 1);
-        }
+        // Check slicing
+        checkSlice(leftBlade, prevLeft);
+        checkSlice(rightBlade, prevRight);
+
+        // Reset combo nếu lâu không chém
+        if (time - lastComboTime > 1800) combo = 0;
       }
-
-      // Draw player
-      ctx.save();
-      ctx.translate(player.x, player.y);
-      ctx.fillStyle = '#00f0ff';
-      ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = 20;
-      ctx.beginPath();
-      ctx.moveTo(0, -28);
-      ctx.lineTo(22, 22);
-      ctx.lineTo(0, 10);
-      ctx.lineTo(-22, 22);
-      ctx.closePath();
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.restore();
-
-      // Draw bullets
-      ctx.fillStyle = '#00f0ff';
-      ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = 12;
-      bullets.forEach(b => {
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
-        ctx.fill();
-      });
-      ctx.shadowBlur = 0;
-
-      // Draw enemies
-      enemies.forEach(e => {
-        ctx.fillStyle = '#ff00aa';
-        ctx.shadowColor = '#ff00aa';
-        ctx.shadowBlur = 15;
-        ctx.beginPath();
-        ctx.moveTo(e.x, e.y + 22);
-        ctx.lineTo(e.x + 20, e.y - 18);
-        ctx.lineTo(e.x - 20, e.y - 18);
-        ctx.closePath();
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
-
-      // Enemy bullets
-      ctx.fillStyle = '#ff3355';
-      enemyBullets.forEach(b => {
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
-        ctx.fill();
-      });
 
       // Particles
-      for (let i = particles.length-1; i >= 0; i--) {
+      for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
+        p.vy += 0.2;
         p.life--;
-        ctx.globalAlpha = p.life / 40;
+        ctx.globalAlpha = Math.max(0, p.life / 40);
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         if (p.life <= 0) particles.splice(i, 1);
       }
 
-      // Hand indicators
-      if (leftHand) {
+      // Draw blades
+      if (leftBlade) {
         ctx.beginPath();
-        ctx.arc(leftHand.x, leftHand.y, 18, 0, Math.PI*2);
-        ctx.strokeStyle = '#00f0ff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        ctx.arc(leftBlade.x, leftBlade.y, 16, 0, Math.PI * 2);
+        ctx.fillStyle = '#00f0ff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 20;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Trail
+        if (prevLeft) {
+          ctx.beginPath();
+          ctx.moveTo(prevLeft.x, prevLeft.y);
+          ctx.lineTo(leftBlade.x, leftBlade.y);
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+          ctx.lineWidth = 8;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
       }
-      if (rightHand) {
+      if (rightBlade) {
         ctx.beginPath();
-        ctx.arc(rightHand.x, rightHand.y, 18, 0, Math.PI*2);
-        ctx.strokeStyle = rightPinching ? '#ffff00' : '#ff00aa';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        ctx.arc(rightBlade.x, rightBlade.y, 16, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff00aa';
+        ctx.shadowColor = '#ff00aa';
+        ctx.shadowBlur = 20;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        if (prevRight) {
+          ctx.beginPath();
+          ctx.moveTo(prevRight.x, prevRight.y);
+          ctx.lineTo(rightBlade.x, rightBlade.y);
+          ctx.strokeStyle = 'rgba(255, 0, 170, 0.6)';
+          ctx.lineWidth = 8;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
       }
+
+      prevLeft = leftBlade ? { ...leftBlade } : null;
+      prevRight = rightBlade ? { ...rightBlade } : null;
 
       requestAnimationFrame(animate);
     }
