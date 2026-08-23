@@ -1,1241 +1,212 @@
-<!DOCTYPE html>
+from pathlib import Path
+
+html = r'''<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-
-<title>TANK Hand Frame</title>
-
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Earth Game 3D</title>
 <style>
-*{
-    box-sizing:border-box;
-    margin:0;
-    padding:0;
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02050b;font-family:Arial,sans-serif;color:#fff}
+#globe{width:100vw;height:100vh}
+#ui{position:fixed;inset:0;pointer-events:none}
+.top{
+  position:absolute;top:18px;left:50%;transform:translateX(-50%);
+  text-align:center;text-shadow:0 3px 15px #000
 }
-
-html,body{
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    background:#020508;
-    font-family:Arial,sans-serif;
+.top h1{margin:0;font-size:clamp(22px,4vw,42px);letter-spacing:2px}
+.top p{margin:6px 0;color:#a9c9e8;font-size:14px}
+.panel{
+  pointer-events:auto;position:absolute;left:18px;top:18px;width:285px;
+  padding:18px;border:1px solid #29415e;border-radius:18px;
+  background:rgba(3,10,20,.82);backdrop-filter:blur(12px);
+  box-shadow:0 15px 45px rgba(0,0,0,.45)
 }
-
-#canvas{
-    position:fixed;
-    inset:0;
-    width:100%;
-    height:100%;
+.panel h2{margin:0 0 12px;font-size:18px}
+.stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1d2d41;font-size:14px}
+.stat:last-child{border:0}
+.value{color:#70d7ff;font-weight:bold}
+button{
+  width:100%;margin-top:12px;padding:11px;border:0;border-radius:12px;
+  color:#fff;background:#1677ff;font-weight:bold;cursor:pointer
 }
-
-#camera{
-    position:fixed;
-    right:15px;
-    bottom:15px;
-    width:170px;
-    height:125px;
-    object-fit:cover;
-    transform:scaleX(-1);
-    opacity:.25;
-    border:1px solid #00ffff;
-    border-radius:14px;
-    z-index:5;
+button:hover{filter:brightness(1.15)}
+#info{
+  display:none;position:absolute;right:18px;top:18px;width:270px;
+  padding:18px;border-radius:18px;background:rgba(3,10,20,.86);
+  border:1px solid #29415e;backdrop-filter:blur(12px);
+  box-shadow:0 15px 45px rgba(0,0,0,.45)
 }
-
-#ui{
-    position:fixed;
-    top:18px;
-    left:18px;
-    z-index:10;
-    color:#00ffff;
-    text-shadow:
-        0 0 5px #00ffff,
-        0 0 15px #00ffff;
+#info h2{margin:0 0 8px}
+#info p{margin:7px 0;color:#b7c7d8;font-size:14px}
+#close{background:#243449}
+#quiz{
+  pointer-events:auto;position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+  min-width:min(430px,calc(100vw - 36px));padding:14px 16px;
+  background:rgba(3,10,20,.88);border:1px solid #29415e;border-radius:18px;
+  text-align:center;backdrop-filter:blur(12px)
 }
-
-#title{
-    font-size:23px;
-    font-weight:bold;
-    letter-spacing:2px;
-}
-
-#status{
-    margin-top:8px;
-    font-size:16px;
-}
-
-#instruction{
-    position:fixed;
-    bottom:25px;
-    left:50%;
-    transform:translateX(-50%);
-    color:#00ffff;
-    opacity:.7;
-    text-align:center;
-    font-size:13px;
-    z-index:10;
-}
-
-#start{
-    position:fixed;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    z-index:20;
-
-    background:rgba(0,20,30,.95);
-    color:#00ffff;
-
-    border:1px solid #00ffff;
-    border-radius:15px;
-
-    padding:18px 30px;
-
-    font-size:18px;
-
-    box-shadow:
-        0 0 20px #00ffff;
+#question{font-weight:bold;margin-bottom:9px}
+#answer{width:100%;padding:11px;border-radius:10px;border:1px solid #40546b;background:#0c1623;color:#fff}
+.small{font-size:12px;color:#8fa6bd;margin-top:7px}
+@media(max-width:700px){
+ .panel{width:220px;padding:12px;top:10px;left:10px}
+ #info{right:10px;top:10px;width:220px;padding:12px}
+ .panel .stat:nth-of-type(n+3){display:none}
+ .top{top:10px}
+ .top h1{font-size:22px}
 }
 </style>
 </head>
-
 <body>
-
-<canvas id="canvas"></canvas>
-
-<video id="camera"
-autoplay
-playsinline
-muted></video>
+<div id="globe"></div>
 
 <div id="ui">
-    <div id="title">TANK • HAND HOLOGRAM</div>
-    <div id="status">Đưa tay vào camera...</div>
+  <div class="top">
+    <h1>🌍 EARTH GAME</h1>
+    <p>Kéo để xoay • Cuộn để zoom • Click vào quốc gia</p>
+  </div>
+
+  <div class="panel">
+    <h2>🌐 Trái Đất 3D</h2>
+    <div class="stat"><span>Chế độ</span><span class="value" id="mode">Khám phá</span></div>
+    <div class="stat"><span>Quốc gia đã chọn</span><span class="value" id="selected">0</span></div>
+    <div class="stat"><span>Điểm</span><span class="value" id="score">0</span></div>
+    <button id="quizBtn">🎯 Bắt đầu đoán quốc gia</button>
+  </div>
+
+  <div id="info">
+    <h2 id="countryName">Quốc gia</h2>
+    <p id="countryCode">Mã: —</p>
+    <p id="countryArea">Diện tích: —</p>
+    <button id="close">Đóng</button>
+  </div>
+
+  <div id="quiz">
+    <div id="question">Nhấn “Bắt đầu đoán quốc gia” để chơi.</div>
+    <input id="answer" placeholder="Nhập tên quốc gia..." autocomplete="off" style="display:none">
+    <button id="submit" style="display:none">Trả lời</button>
+    <div class="small">Bạn có thể kéo quả địa cầu để tìm quốc gia.</div>
+  </div>
 </div>
 
-<div id="instruction">
-    🤏 Chụm ngón cái + trỏ → kéo tạo khung • Thả tay → chụp khung
-</div>
-
-<button id="start">
-    🎥 BẬT CAMERA
-</button>
-
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/globe.gl"></script>
 <script>
-
-/* =========================================================
-   THREE
-========================================================= */
-
-const canvas =
-document.getElementById("canvas");
-
-const scene =
-new THREE.Scene();
-
-const camera =
-new THREE.PerspectiveCamera(
-    60,
-    innerWidth/innerHeight,
-    .1,
-    100
-);
-
-camera.position.z=7;
-
-
-const renderer =
-new THREE.WebGLRenderer({
-
-    canvas:canvas,
-
-    antialias:false,
-
-    alpha:false,
-
-    powerPreference:
-        "high-performance"
-
-});
-
-renderer.setPixelRatio(
-    Math.min(
-        devicePixelRatio,
-        1.5
-    )
-);
-
-renderer.setSize(
-    innerWidth,
-    innerHeight
-);
-
-
-/* =========================================================
-   PARTICLE BACKGROUND
-========================================================= */
-
-const COUNT=5000;
-
-const positions=
-new Float32Array(COUNT*3);
-
-for(let i=0;i<COUNT;i++){
-
-    const j=i*3;
-
-    positions[j]=
-        (Math.random()-.5)*14;
-
-    positions[j+1]=
-        (Math.random()-.5)*9;
-
-    positions[j+2]=
-        (Math.random()-.5)*4;
-}
-
-
-const bgGeometry=
-new THREE.BufferGeometry();
-
-bgGeometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(
-        positions,
-        3
-    )
-);
-
-
-const bgMaterial=
-new THREE.PointsMaterial({
-
-    color:0x006f88,
-
-    size:.015,
-
-    transparent:true,
-
-    opacity:.35,
-
-    blending:
-        THREE.AdditiveBlending,
-
-    depthWrite:false
-
-});
-
-
-const backgroundParticles=
-new THREE.Points(
-    bgGeometry,
-    bgMaterial
-);
-
-scene.add(
-    backgroundParticles
-);
-
-
-/* =========================================================
-   HAND JOINT VISUALIZATION
-========================================================= */
-
-const jointGroup=
-new THREE.Group();
-
-scene.add(jointGroup);
-
-
-const jointMaterial=
-new THREE.MeshBasicMaterial({
-    color:0x00ffff
-});
-
-
-const jointGeometry=
-new THREE.SphereGeometry(
-    .055,
-    8,
-    8
-);
-
-
-const joints=[];
-
-
-for(let i=0;i<21;i++){
-
-    const mesh=
-        new THREE.Mesh(
-            jointGeometry,
-            jointMaterial
-        );
-
-    jointGroup.add(mesh);
-
-    joints.push(mesh);
-
-}
-
-
-/* =========================================================
-   HAND BONE LINES
-========================================================= */
-
-const connections=[
-
-    [0,1],
-    [1,2],
-    [2,3],
-    [3,4],
-
-    [0,5],
-    [5,6],
-    [6,7],
-    [7,8],
-
-    [0,9],
-    [9,10],
-    [10,11],
-    [11,12],
-
-    [0,13],
-    [13,14],
-    [14,15],
-    [15,16],
-
-    [0,17],
-    [17,18],
-    [18,19],
-    [19,20],
-
-    [5,9],
-    [9,13],
-    [13,17]
-
-];
-
-
-const lineMaterial=
-new THREE.LineBasicMaterial({
-
-    color:0x00ffff,
-
-    transparent:true,
-
-    opacity:.65
-
-});
-
-
-const boneLines=[];
-
-
-for(
-    let i=0;
-    i<connections.length;
-    i++
-){
-
-    const geometry=
-        new THREE.BufferGeometry();
-
-    const points=
-        new Float32Array(6);
-
-    geometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(
-            points,
-            3
-        )
-    );
-
-    const line=
-        new THREE.Line(
-            geometry,
-            lineMaterial
-        );
-
-    jointGroup.add(line);
-
-    boneLines.push(line);
-}
-
-
-/* =========================================================
-   HAND POSITION
-========================================================= */
-
-function handToWorld(x,y){
-
-    return {
-
-        x:(x-.5)*6,
-
-        y:-(y-.5)*4,
-
-        z:0
-
-    };
-
-}
-
-
-/* =========================================================
-   FRAME SYSTEM
-========================================================= */
-
-let frame=null;
-
-let frameActive=false;
-
-let frameStartX=0;
-
-let frameStartY=0;
-
-let frameCurrentX=0;
-
-let frameCurrentY=0;
-
-
-/* =========================================================
-   FRAME OBJECT
-========================================================= */
-
-function createFrame(){
-
-    const group=
-        new THREE.Group();
-
-
-    const material=
-        new THREE.LineBasicMaterial({
-
-            color:0x00ffff,
-
-            transparent:true,
-
-            opacity:.95
-
-        });
-
-
-    const geometry=
-        new THREE.BufferGeometry();
-
-
-    const points=
-        new Float32Array(15);
-
-
-    geometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(
-            points,
-            3
-        )
-    );
-
-
-    const line=
-        new THREE.Line(
-            geometry,
-            material
-        );
-
-
-    group.add(line);
-
-
-    /* 4 góc sáng */
-
-    const cornerMaterial=
-        new THREE.MeshBasicMaterial({
-            color:0xffffff
-        });
-
-
-    for(let i=0;i<4;i++){
-
-        const c=
-            new THREE.Mesh(
-                new THREE.SphereGeometry(
-                    .07,
-                    8,
-                    8
-                ),
-                cornerMaterial
-            );
-
-        group.add(c);
-
+const globe = Globe()(document.getElementById('globe'))
+  .backgroundColor('#02050b')
+  .showAtmosphere(true)
+  .atmosphereColor('#38a9ff')
+  .atmosphereAltitude(0.18)
+  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+  .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+  .polygonAltitude(0.006)
+  .polygonCapColor(d => d.__selected ? 'rgba(255,190,40,.78)' : 'rgba(30,150,255,.25)')
+  .polygonSideColor(() => 'rgba(20,80,130,.35)')
+  .polygonStrokeColor(() => 'rgba(160,220,255,.55)')
+  .polygonLabel(d => `<b>${d.properties.ADMIN || d.properties.name || 'Quốc gia'}</b>`)
+  .onPolygonClick(selectCountry)
+  .onPolygonHover(d => document.body.style.cursor = d ? 'pointer' : 'default');
+
+globe.controls().enableDamping = true;
+globe.controls().dampingFactor = 0.08;
+globe.controls().autoRotate = true;
+globe.controls().autoRotateSpeed = 0.35;
+
+let countries = [];
+let selectedCount = 0;
+let score = 0;
+let quizMode = false;
+let target = null;
+
+fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+  .then(r => r.json())
+  .then(data => {
+    countries = data.features || [];
+    globe.polygonsData(countries);
+    document.getElementById('selected').textContent = '0';
+  })
+  .catch(err => {
+    document.getElementById('question').textContent =
+      'Không tải được dữ liệu quốc gia. Hãy mở bằng mạng Internet.';
+  });
+
+function selectCountry(d){
+  if(!d) return;
+
+  countries.forEach(c => c.__selected = false);
+  d.__selected = true;
+  globe.polygonsData([...countries]);
+
+  const name = d.properties.ADMIN || d.properties.name || 'Không rõ';
+  const code = d.properties.ISO_A3 || d.properties.iso_a3 || '—';
+
+  selectedCount++;
+  document.getElementById('selected').textContent = selectedCount;
+  document.getElementById('countryName').textContent = '🌍 ' + name;
+  document.getElementById('countryCode').textContent = 'Mã quốc gia: ' + code;
+  document.getElementById('countryArea').textContent =
+    'Diện tích: ' + ((d.properties.AREA || 0) ? Number(d.properties.AREA).toLocaleString('vi-VN') + ' km²' : 'Đang cập nhật');
+  document.getElementById('info').style.display = 'block';
+
+  if(quizMode && target){
+    if(normalize(name) === normalize(target.name)){
+      score += 100;
+      document.getElementById('score').textContent = score;
+      document.getElementById('question').textContent = '🎉 Chính xác! +100 điểm';
+      setTimeout(newQuestion, 900);
+    } else {
+      document.getElementById('question').textContent = '❌ Chưa đúng! Hãy tìm tiếp.';
     }
-
-
-    /* scan line */
-
-    const scanGeometry=
-        new THREE.BufferGeometry();
-
-    const scanPoints=
-        new Float32Array(6);
-
-    scanGeometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(
-            scanPoints,
-            3
-        )
-    );
-
-    const scanLine=
-        new THREE.Line(
-            scanGeometry,
-            new THREE.LineBasicMaterial({
-                color:0x00ffff,
-                transparent:true,
-                opacity:.7
-            })
-        );
-
-    group.add(scanLine);
-
-
-    /* particles inside frame */
-
-    const particleCount=900;
-
-    const p=
-        new Float32Array(
-            particleCount*3
-        );
-
-    for(
-        let i=0;
-        i<particleCount;
-        i++
-    ){
-
-        p[i*3]=
-            (Math.random()-.5);
-
-        p[i*3+1]=
-            (Math.random()-.5);
-
-        p[i*3+2]=
-            (Math.random()-.5)*.3;
-
-    }
-
-
-    const pg=
-        new THREE.BufferGeometry();
-
-    pg.setAttribute(
-        "position",
-        new THREE.BufferAttribute(
-            p,
-            3
-        )
-    );
-
-
-    const pm=
-        new THREE.PointsMaterial({
-
-            color:0x00ffff,
-
-            size:.025,
-
-            transparent:true,
-
-            opacity:.65,
-
-            blending:
-                THREE.AdditiveBlending,
-
-            depthWrite:false
-
-        });
-
-
-    const particles=
-        new THREE.Points(
-            pg,
-            pm
-        );
-
-    group.add(
-        particles
-    );
-
-
-    return group;
+  }
 }
 
-
-/* =========================================================
-   UPDATE FRAME
-========================================================= */
-
-function updateFrame(){
-
-    if(!frame)
-        return;
-
-
-    const x1=
-        Math.min(
-            frameStartX,
-            frameCurrentX
-        );
-
-    const x2=
-        Math.max(
-            frameStartX,
-            frameCurrentX
-        );
-
-    const y1=
-        Math.min(
-            frameStartY,
-            frameCurrentY
-        );
-
-    const y2=
-        Math.max(
-            frameStartY,
-            frameCurrentY
-        );
-
-
-    const width=
-        Math.max(
-            .2,
-            x2-x1
-        );
-
-    const height=
-        Math.max(
-            .2,
-            y2-y1
-        );
-
-
-    frame.position.set(
-        (x1+x2)/2,
-        (y1+y2)/2,
-        .3
-    );
-
-
-    frame.scale.set(
-        width,
-        height,
-        1
-    );
-
-
-    /* corners */
-
-    const corners=[
-        frame.children[1],
-        frame.children[2],
-        frame.children[3],
-        frame.children[4]
-    ];
-
-
-    corners[0].position.set(
-        -.5,
-        .5,
-        0
-    );
-
-    corners[1].position.set(
-        .5,
-        .5,
-        0
-    );
-
-    corners[2].position.set(
-        -.5,
-        -.5,
-        0
-    );
-
-    corners[3].position.set(
-        .5,
-        -.5,
-        0
-    );
-
-
-    /* scan */
-
-    const scan=
-        frame.children[5];
-
-    const scanPos=
-        scan.geometry
-        .attributes
-        .position.array;
-
-
-    const t=
-        (performance.now()*.0005)%1;
-
-
-    const sy=
-        .5-t;
-
-
-    scanPos[0]=-.5;
-    scanPos[1]=sy;
-    scanPos[2]=.02;
-
-    scanPos[3]=.5;
-    scanPos[4]=sy;
-    scanPos[5]=.02;
-
-
-    scan.geometry
-        .attributes
-        .position
-        .needsUpdate=true;
-
-
-    /* particles */
-
-    const particleObject=
-        frame.children[6];
-
-    particleObject.rotation.z +=
-        .002;
-
+function normalize(s){
+  return String(s).toLowerCase()
+    .normalize('NFD').replace(/[\\u0300-\\u036f]/g,'')
+    .replace(/[^a-z0-9]/g,'');
 }
 
-
-/* =========================================================
-   CREATE FRAME
-========================================================= */
-
-function beginFrame(x,y){
-
-    if(frame)
-        scene.remove(frame);
-
-
-    frame=
-        createFrame();
-
-    scene.add(frame);
-
-
-    frameActive=true;
-
-    frameStartX=x;
-
-    frameStartY=y;
-
-    frameCurrentX=x;
-
-    frameCurrentY=y;
-
-    updateFrame();
-
-
-    statusText(
-        "Đang kéo tạo khung..."
-    );
-
+function newQuestion(){
+  if(!countries.length) return;
+  target = countries[Math.floor(Math.random()*countries.length)];
+  const name = target.properties.ADMIN || target.properties.name;
+  document.getElementById('question').textContent =
+    '🎯 Hãy tìm quốc gia: ' + name;
 }
 
-
-/* =========================================================
-   FINISH FRAME
-========================================================= */
-
-function finishFrame(){
-
-    if(!frame)
-        return;
-
-
-    frameActive=false;
-
-
-    /*
-       flash
-    */
-
-    frame.scale.multiplyScalar(
-        1.08
-    );
-
-
-    statusText(
-        "✓ Đã chụp khung hologram"
-    );
-
-}
-
-
-/* =========================================================
-   MEDIAPIPE
-========================================================= */
-
-const video=
-document.getElementById(
-    "camera"
-);
-
-
-const hands=
-new Hands({
-
-    locateFile:
-    file =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-
-});
-
-
-hands.setOptions({
-
-    maxNumHands:1,
-
-    modelComplexity:0,
-
-    minDetectionConfidence:.65,
-
-    minTrackingConfidence:.65
-
-});
-
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-function statusText(text){
-
-    document
-    .getElementById("status")
-    .innerText=text;
-
-}
-
-
-/* =========================================================
-   PINCH
-========================================================= */
-
-function pinchDistance(l){
-
-    const dx=
-        l[4].x-l[8].x;
-
-    const dy=
-        l[4].y-l[8].y;
-
-
-    return Math.sqrt(
-        dx*dx+
-        dy*dy
-    );
-
-}
-
-
-/* =========================================================
-   MEDIAPIPE RESULTS
-========================================================= */
-
-hands.onResults(
-results=>{
-
-    if(
-        !results.multiHandLandmarks ||
-        results.multiHandLandmarks.length===0
-    ){
-
-        statusText(
-            "Đang tìm bàn tay..."
-        );
-
-        return;
-    }
-
-
-    const l=
-        results.multiHandLandmarks[0];
-
-
-    /* =========================
-       DRAW 21 JOINTS
-    ========================= */
-
-    for(
-        let i=0;
-        i<21;
-        i++
-    ){
-
-        const p=
-            handToWorld(
-                l[i].x,
-                l[i].y
-            );
-
-
-        joints[i]
-        .position.set(
-            p.x,
-            p.y,
-            .1
-        );
-
-    }
-
-
-    /* =========================
-       DRAW BONES
-    ========================= */
-
-    for(
-        let i=0;
-        i<connections.length;
-        i++
-    ){
-
-        const a=
-            connections[i][0];
-
-        const b=
-            connections[i][1];
-
-
-        const arr=
-            boneLines[i]
-            .geometry
-            .attributes
-            .position
-            .array;
-
-
-        arr[0]=
-            joints[a].position.x;
-
-        arr[1]=
-            joints[a].position.y;
-
-        arr[2]=
-            .08;
-
-
-        arr[3]=
-            joints[b].position.x;
-
-        arr[4]=
-            joints[b].position.y;
-
-        arr[5]=
-            .08;
-
-
-        boneLines[i]
-        .geometry
-        .attributes
-        .position
-        .needsUpdate=true;
-
-    }
-
-
-    /* =========================
-       THUMB + INDEX
-    ========================= */
-
-    const thumb=
-        handToWorld(
-            l[4].x,
-            l[4].y
-        );
-
-
-    const index=
-        handToWorld(
-            l[8].x,
-            l[8].y
-        );
-
-
-    const distance=
-        pinchDistance(l);
-
-
-    const pinching=
-        distance<.075;
-
-
-    /* =========================
-       PINCH DRAG
-    ========================= */
-
-    if(pinching){
-
-        /*
-           vị trí trung tâm giữa
-           ngón cái và trỏ
-        */
-
-        const centerX=
-            (thumb.x+index.x)/2;
-
-        const centerY=
-            (thumb.y+index.y)/2;
-
-
-        if(!frameActive){
-
-            beginFrame(
-                centerX,
-                centerY
-            );
-
-        }
-
-
-        /*
-           khung thay đổi theo
-           khoảng cách 2 ngón
-        */
-
-        frameCurrentX=
-            index.x;
-
-        frameCurrentY=
-            index.y;
-
-
-        /*
-           neo đầu còn lại
-        */
-
-        frameStartX=
-            thumb.x;
-
-        frameStartY=
-            thumb.y;
-
-
-        updateFrame();
-
-
-        statusText(
-            "🤏 Đang kéo khung hologram"
-        );
-
-    }
-
-    else{
-
-        if(frameActive){
-
-            finishFrame();
-
-        }
-
-    }
-
-});
-
-
-/* =========================================================
-   CAMERA START
-========================================================= */
-
-document
-.getElementById("start")
-.addEventListener(
-"click",
-async()=>{
-
-    try{
-
-        const stream=
-            await navigator
-            .mediaDevices
-            .getUserMedia({
-
-                video:{
-
-                    facingMode:"user",
-
-                    width:{
-                        ideal:640
-                    },
-
-                    height:{
-                        ideal:480
-                    },
-
-                    frameRate:{
-                        ideal:24,
-                        max:30
-                    }
-
-                },
-
-                audio:false
-
-            });
-
-
-        video.srcObject=
-            stream;
-
-
-        const cam=
-            new Camera(
-                video,
-                {
-
-                    onFrame:
-                    async()=>{
-
-                        await hands.send({
-                            image:video
-                        });
-
-                    },
-
-                    width:640,
-
-                    height:480
-
-                }
-            );
-
-
-        cam.start();
-
-
-        document
-        .getElementById("start")
-        .style.display="none";
-
-
-        statusText(
-            "Camera hoạt động • Đưa tay vào"
-        );
-
-    }
-
-    catch(e){
-
-        console.error(e);
-
-        alert(
-            "Không mở được camera.\n\n"+
-            "Hãy cho phép quyền Camera "+
-            "và sử dụng HTTPS."
-        );
-
-    }
-
-});
-
-
-/* =========================================================
-   ANIMATION
-========================================================= */
-
-function animate(){
-
-    requestAnimationFrame(
-        animate
-    );
-
-
-    /*
-       nền chuyển động
-    */
-
-    backgroundParticles.rotation.y+=
-        .0002;
-
-
-    /*
-       các khớp tay nhấp nháy
-    */
-
-    const pulse=
-        .045+
-        Math.sin(
-            performance.now()*.005
-        )*.015;
-
-
-    joints.forEach(
-        j=>{
-            j.scale.setScalar(
-                pulse/.055
-            );
-        }
-    );
-
-
-    /*
-       frame
-    */
-
-    updateFrame();
-
-
-    renderer.render(
-        scene,
-        camera
-    );
-
-}
-
-
-animate();
-
-
-/* =========================================================
-   RESIZE
-========================================================= */
-
-window.addEventListener(
-"resize",
-()=>{
-
-    camera.aspect=
-        innerWidth/
-        innerHeight;
-
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(
-        innerWidth,
-        innerHeight
-    );
-
-});
-
+document.getElementById('quizBtn').onclick = () => {
+  quizMode = !quizMode;
+  document.getElementById('mode').textContent = quizMode ? 'Đoán quốc gia' : 'Khám phá';
+  document.getElementById('quizBtn').textContent =
+    quizMode ? '🛑 Dừng chế độ đoán' : '🎯 Bắt đầu đoán quốc gia';
+  if(quizMode) newQuestion();
+  else {
+    target = null;
+    document.getElementById('question').textContent = 'Đã quay lại chế độ khám phá.';
+  }
+};
+
+document.getElementById('close').onclick = () =>
+  document.getElementById('info').style.display = 'none';
+
+document.getElementById('submit').onclick = () => {
+  const val = document.getElementById('answer').value.trim();
+  if(target && normalize(val) === normalize(target.properties.ADMIN || target.properties.name)){
+    score += 100;
+    document.getElementById('score').textContent = score;
+    document.getElementById('question').textContent = '🎉 Chính xác! +100 điểm';
+    document.getElementById('answer').value = '';
+    setTimeout(newQuestion, 900);
+  } else {
+    document.getElementById('question').textContent = '❌ Sai rồi, thử lại nhé!';
+  }
+};
 </script>
-
 </body>
-</html>
+</html>'''
+
+path = Path("/mnt/data/earth_game_3d.html")
+path.write_text(html, encoding="utf-8")
+print(f"Đã tạo: {path}")
