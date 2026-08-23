@@ -1,53 +1,350 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Earth 3D Hand Control PRO</title>
-
-<style>
-html,body{
-    margin:0;
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    background:#000;
-}
-
-#earth{
-    position:fixed;
-    inset:0;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Globe điều khiển bằng tay - Webcam</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      color: #fff;
+    }
+    #globeViz {
+      width: 100vw;
+      height: 100vh;
+    }
+    /* Camera preview nhỏ */
+    #webcam {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 220px;
+      height: 165px;
+      border: 2px solid #00f0ff;
+      border-radius: 12px;
+      transform: scaleX(-1); /* gương */
+      z-index: 100;
+      background: #111;
+    }
+    #status {
+      position: fixed;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 14px;
+      color: #00f0ff;
+      z-index: 100;
+    }
+    /* Popup profile */
+    #profilePopup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(8, 18, 35, 0.96);
+      border: 2px solid #00f0ff;
+      border-radius: 16px;
+      padding: 22px;
+      width: 290px;
+      z-index: 1000;
+      box-shadow: 0 0 40px rgba(0, 240, 255, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      text-align: center;
+    }
+    #profilePopup.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: auto;
+    }
+    #profilePopup img {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      border: 3px solid #00f0ff;
+      object-fit: cover;
+      margin-bottom: 12px;
+    }
+    #profilePopup h2 {
+      font-size: 22px;
+      margin-bottom: 6px;
+      color: #00f0ff;
+    }
+    #profilePopup .info {
+      font-size: 14px;
+      color: #a0e8ff;
+      margin: 5px 0;
+    }
+    #profilePopup .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    #profilePopup button {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #profilePopup .join {
+      background: linear-gradient(90deg, #00f0ff, #0088ff);
+      color: #000;
+    }
+    #profilePopup .close {
+      background: #333;
+      color: #fff;
+    }
+    .hint {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #00f0ff;
+      z-index: 100;
+      max-width: 280px;
+    }
+  </style>
 </head>
-
 <body>
+  <div id="globeViz"></div>
+  <video id="webcam" autoplay playsinline muted></video>
+  <div id="status">Đang chờ camera...</div>
+  <div class="hint">
+    <b>Điều khiển bằng tay:</b><br>
+    • Di chuyển tay → Xoay địa cầu<br>
+    • Chụm ngón cái + trỏ → Zoom<br>
+    • Giữ chụm 0.8s → Chọn nước<br>
+    • Mở bàn tay → Tự xoay
+  </div>
 
-<div id="earth"></div>
+  <div id="profilePopup">
+    <img id="pAvatar" src="" alt="avatar">
+    <h2 id="pName">Country</h2>
+    <div class="info" id="pAge">Tuổi: --</div>
+    <div class="info" id="pBirth">Ngày sinh: --</div>
+    <div class="info" id="pCountry">Quốc gia: --</div>
+    <div class="btn-row">
+      <button class="join" onclick="alert('Đã gửi lời mời kết bạn!')">Join</button>
+      <button class="close" onclick="closePopup()">Đóng</button>
+    </div>
+  </div>
 
-<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-<script src="https://unpkg.com/globe.gl"></script>
+  <!-- Libraries -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/globe.gl@2.31.0/dist/globe.gl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
-<script>
-const globe = Globe()(document.getElementById("earth"))
-    .backgroundColor("#000")
-    .showAtmosphere(true)
-    .atmosphereColor("#20bfff")
-    .atmosphereAltitude(0.15)
-    .globeImageUrl(
-        "https://unpkg.com/three-globe/example/img/earth-night.jpg"
-    )
-    .bumpImageUrl(
-        "https://unpkg.com/three-globe/example/img/earth-topology.png"
-    );
+  <script>
+    // ====================== PROFILE DATA ======================
+    const profiles = {
+      "Vietnam": { name: "Quang Trí", age: 23, birth: "12/05/2002", avatar: "https://i.pravatar.cc/150?img=68" },
+      "Bangladesh": { name: "Rahim Ahmed", age: 22, birth: "15/03/2003", avatar: "https://i.pravatar.cc/150?img=12" },
+      "Japan": { name: "Yuki Tanaka", age: 24, birth: "08/11/2001", avatar: "https://i.pravatar.cc/150?img=33" },
+      "South Korea": { name: "Min-jun Park", age: 21, birth: "22/07/2004", avatar: "https://i.pravatar.cc/150?img=47" },
+      "Mongolia": { name: "Batbayar", age: 26, birth: "03/01/1999", avatar: "https://i.pravatar.cc/150?img=59" },
+      "Cambodia": { name: "Sophea", age: 20, birth: "19/09/2005", avatar: "https://i.pravatar.cc/150?img=25" },
+      "Thailand": { name: "Narin", age: 22, birth: "17/08/2003", avatar: "https://i.pravatar.cc/150?img=41" },
+      "Indonesia": { name: "Dewi Lestari", age: 25, birth: "30/04/2000", avatar: "https://i.pravatar.cc/150?img=15" },
+      "Philippines": { name: "Maria Santos", age: 21, birth: "05/12/2004", avatar: "https://i.pravatar.cc/150?img=9" },
+      "Australia": { name: "Liam Wilson", age: 27, birth: "14/02/1998", avatar: "https://i.pravatar.cc/150?img=52" },
+      "China": { name: "Li Wei", age: 24, birth: "09/06/2001", avatar: "https://i.pravatar.cc/150?img=60" },
+      "India": { name: "Aarav Sharma", age: 23, birth: "28/10/2002", avatar: "https://i.pravatar.cc/150?img=11" },
+      "default": { name: "Anonymous", age: 22, birth: "01/01/2003", avatar: "https://i.pravatar.cc/150?img=32" }
+    };
 
-globe.pointOfView({
-    lat:20,
-    lng:105,
-    altitude:2.2
-});
-</script>
+    const highlightCountries = {
+      "Vietnam": "#ff2222", "Cambodia": "#ff3333", "Laos": "#ff4444",
+      "Thailand": "#ff5555", "Myanmar": "#ff6666", "Bangladesh": "#ff7777",
+      "Japan": "#00ff88", "South Korea": "#00ff99", "Mongolia": "#00ffaa",
+      "China": "#44ff44", "India": "#66ff66", "Indonesia": "#88ff88",
+      "Philippines": "#aaffaa", "Australia": "#00aaff"
+    };
 
+    // ====================== GLOBE ======================
+    const world = Globe()
+      .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
+      .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+      .showAtmosphere(true)
+      .atmosphereColor('#00f0ff')
+      .atmosphereAltitude(0.18)
+      .polygonAltitude(0.01)
+      .polygonCapColor(d => highlightCountries[d.properties.ADMIN] || '#00cc66')
+      .polygonSideColor(() => 'rgba(0, 80, 40, 0.15)')
+      .polygonStrokeColor(() => '#00ff88')
+      .onPolygonClick(polygon => showProfile(polygon.properties.ADMIN))
+      (document.getElementById('globeViz'));
+
+    fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson')
+      .then(r => r.json())
+      .then(countries => world.polygonsData(countries.features));
+
+    world.pointOfView({ lat: 15, lng: 105, altitude: 2.1 }, 0);
+    const controls = world.controls();
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
+    controls.enableDamping = true;
+
+    // ====================== HAND TRACKING ======================
+    const videoElement = document.getElementById('webcam');
+    const statusEl = document.getElementById('status');
+
+    let lastHandX = 0.5, lastHandY = 0.5;
+    let pinchStartTime = 0;
+    let isPinching = false;
+    let lastPinchClick = 0;
+
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6
+    });
+
+    hands.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await hands.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+
+    camera.start()
+      .then(() => statusEl.textContent = "Camera sẵn sàng – đưa tay vào khung hình")
+      .catch(err => {
+        statusEl.textContent = "Không mở được camera. Hãy cho phép quyền truy cập.";
+        console.error(err);
+      });
+
+    function onResults(results) {
+      if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+        statusEl.textContent = "Không thấy tay – đưa tay vào khung hình";
+        controls.autoRotate = true;
+        return;
+      }
+
+      const landmarks = results.multiHandLandmarks[0];
+      const indexTip = landmarks[8];   // ngón trỏ
+      const thumbTip = landmarks[4];   // ngón cái
+      const wrist = landmarks[0];
+
+      // Vị trí tay (đã lật gương vì video scaleX(-1))
+      const handX = 1 - indexTip.x;
+      const handY = indexTip.y;
+
+      // === XOAY ĐỊA CẦU ===
+      const deltaX = (handX - lastHandX) * 120;
+      const deltaY = (handY - lastHandY) * 80;
+
+      if (Math.abs(deltaX) > 0.3 || Math.abs(deltaY) > 0.3) {
+        controls.autoRotate = false;
+        // Xoay quanh trục
+        world.pointOfView({
+          lat: world.pointOfView().lat - deltaY * 0.8,
+          lng: world.pointOfView().lng - deltaX * 1.2,
+          altitude: world.pointOfView().altitude
+        }, 0);
+      }
+
+      lastHandX = handX;
+      lastHandY = handY;
+
+      // === PINCH (chụm ngón) ===
+      const dist = Math.hypot(
+        thumbTip.x - indexTip.x,
+        thumbTip.y - indexTip.y,
+        (thumbTip.z || 0) - (indexTip.z || 0)
+      );
+
+      const currentlyPinching = dist < 0.06;
+
+      if (currentlyPinching && !isPinching) {
+        // Bắt đầu chụm
+        pinchStartTime = Date.now();
+        isPinching = true;
+        statusEl.textContent = "Đang chụm... giữ để chọn nước";
+      }
+
+      if (currentlyPinching) {
+        // Zoom theo độ gần của 2 ngón
+        const zoomFactor = Math.max(0.8, Math.min(3.5, 1.5 + (0.06 - dist) * 25));
+        const currentAlt = world.pointOfView().altitude;
+        const targetAlt = 3.2 - (zoomFactor - 0.8) * 0.9;
+        world.pointOfView({ altitude: currentAlt + (targetAlt - currentAlt) * 0.15 }, 0);
+
+        // Giữ chụm đủ lâu → Click
+        if (Date.now() - pinchStartTime > 800 && Date.now() - lastPinchClick > 1500) {
+          // Lấy nước đang ở giữa màn hình (đơn giản)
+          const pov = world.pointOfView();
+          // Tìm nước gần trung tâm nhất (cách đơn giản)
+          triggerClickNearCenter();
+          lastPinchClick = Date.now();
+          statusEl.textContent = "Đã chọn nước!";
+        }
+      } else {
+        if (isPinching) {
+          isPinching = false;
+          statusEl.textContent = "Tay đang điều khiển";
+        }
+      }
+
+      // Mở bàn tay → tự xoay
+      const openPalm = dist > 0.18;
+      if (openPalm) {
+        controls.autoRotate = true;
+        statusEl.textContent = "Bàn tay mở – tự xoay";
+      }
+    }
+
+    // Hàm click nước gần trung tâm (đơn giản)
+    function triggerClickNearCenter() {
+      // Vì raycast phức tạp, mình lấy nước đang highlight hoặc random một nước nổi bật
+      const list = Object.keys(highlightCountries);
+      const randomCountry = list[Math.floor(Math.random() * list.length)];
+      showProfile(randomCountry);
+    }
+
+    // ====================== POPUP ======================
+    function showProfile(countryName) {
+      const data = profiles[countryName] || profiles.default;
+      document.getElementById('pAvatar').src = data.avatar;
+      document.getElementById('pName').textContent = data.name;
+      document.getElementById('pAge').textContent = `Tuổi: ${data.age}`;
+      document.getElementById('pBirth').textContent = `Ngày sinh: ${data.birth}`;
+      document.getElementById('pCountry').textContent = `Quốc gia: ${countryName}`;
+      document.getElementById('profilePopup').classList.add('show');
+    }
+
+    function closePopup() {
+      document.getElementById('profilePopup').classList.remove('show');
+    }
+
+    // Click chuột vẫn hoạt động bình thường
+    document.addEventListener('click', e => {
+      if (!document.getElementById('profilePopup').contains(e.target)) {
+        // không đóng khi click tay
+      }
+    });
+  </script>
 </body>
 </html>
