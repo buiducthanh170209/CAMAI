@@ -3,131 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Globe điều khiển bằng tay - Webcam</title>
+  <title>Globe Hand Control Pro</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #000;
-      overflow: hidden;
-      font-family: system-ui, sans-serif;
-      color: #fff;
-    }
-    #globeViz {
-      width: 100vw;
-      height: 100vh;
-    }
-    /* Camera preview nhỏ */
+    body { background: #000; overflow: hidden; font-family: system-ui, sans-serif; color: #fff; }
+    #globeViz { width: 100vw; height: 100vh; }
     #webcam {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 220px;
-      height: 165px;
-      border: 2px solid #00f0ff;
-      border-radius: 12px;
-      transform: scaleX(-1); /* gương */
-      z-index: 100;
-      background: #111;
+      position: fixed; bottom: 18px; right: 18px;
+      width: 200px; height: 150px;
+      border: 2px solid #00f0ff; border-radius: 12px;
+      transform: scaleX(-1); z-index: 100; background: #111;
+      object-fit: cover;
     }
     #status {
-      position: fixed;
-      top: 15px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.75);
-      padding: 8px 18px;
-      border-radius: 20px;
-      font-size: 14px;
-      color: #00f0ff;
-      z-index: 100;
-    }
-    /* Popup profile */
-    #profilePopup {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0.9);
-      background: rgba(8, 18, 35, 0.96);
-      border: 2px solid #00f0ff;
-      border-radius: 16px;
-      padding: 22px;
-      width: 290px;
-      z-index: 1000;
-      box-shadow: 0 0 40px rgba(0, 240, 255, 0.45);
-      opacity: 0;
-      pointer-events: none;
-      transition: all 0.25s ease;
-      text-align: center;
-    }
-    #profilePopup.show {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-      pointer-events: auto;
-    }
-    #profilePopup img {
-      width: 90px;
-      height: 90px;
-      border-radius: 50%;
-      border: 3px solid #00f0ff;
-      object-fit: cover;
-      margin-bottom: 12px;
-    }
-    #profilePopup h2 {
-      font-size: 22px;
-      margin-bottom: 6px;
-      color: #00f0ff;
-    }
-    #profilePopup .info {
-      font-size: 14px;
-      color: #a0e8ff;
-      margin: 5px 0;
-    }
-    #profilePopup .btn-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 18px;
-    }
-    #profilePopup button {
-      flex: 1;
-      padding: 11px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    #profilePopup .join {
-      background: linear-gradient(90deg, #00f0ff, #0088ff);
-      color: #000;
-    }
-    #profilePopup .close {
-      background: #333;
-      color: #fff;
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); padding: 8px 20px; border-radius: 20px;
+      font-size: 14px; color: #00f0ff; z-index: 100; max-width: 90vw; text-align: center;
     }
     .hint {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(0,0,0,0.7);
-      padding: 10px 16px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.5;
-      color: #00f0ff;
-      z-index: 100;
-      max-width: 280px;
+      position: fixed; bottom: 18px; left: 18px;
+      background: rgba(0,0,0,0.75); padding: 12px 16px; border-radius: 12px;
+      font-size: 13px; line-height: 1.55; color: #00f0ff; z-index: 100; max-width: 260px;
     }
+    #profilePopup {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.92);
+      background: rgba(6, 16, 32, 0.97); border: 2px solid #00f0ff; border-radius: 16px;
+      padding: 22px; width: 290px; z-index: 1000; box-shadow: 0 0 40px rgba(0,240,255,0.4);
+      opacity: 0; pointer-events: none; transition: all 0.22s ease; text-align: center;
+    }
+    #profilePopup.show { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+    #profilePopup img { width: 90px; height: 90px; border-radius: 50%; border: 3px solid #00f0ff; object-fit: cover; margin-bottom: 12px; }
+    #profilePopup h2 { font-size: 22px; margin-bottom: 6px; color: #00f0ff; }
+    #profilePopup .info { font-size: 14px; color: #a0e8ff; margin: 5px 0; }
+    #profilePopup .btn-row { display: flex; gap: 10px; margin-top: 16px; }
+    #profilePopup button { flex: 1; padding: 11px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    #profilePopup .join { background: linear-gradient(90deg, #00f0ff, #0088ff); color: #000; }
+    #profilePopup .close { background: #333; color: #fff; }
   </style>
 </head>
 <body>
   <div id="globeViz"></div>
   <video id="webcam" autoplay playsinline muted></video>
-  <div id="status">Đang chờ camera...</div>
+  <div id="status">Đang khởi động camera...</div>
   <div class="hint">
-    <b>Điều khiển bằng tay:</b><br>
-    • Di chuyển tay → Xoay địa cầu<br>
+    <b>Điều khiển tay (Pro):</b><br>
+    • Di chuyển tay → Xoay<br>
     • Chụm ngón cái + trỏ → Zoom<br>
-    • Giữ chụm 0.8s → Chọn nước<br>
+    • Giữ chụm 0.7s → Chọn nước<br>
     • Mở bàn tay → Tự xoay
   </div>
 
@@ -138,19 +60,18 @@
     <div class="info" id="pBirth">Ngày sinh: --</div>
     <div class="info" id="pCountry">Quốc gia: --</div>
     <div class="btn-row">
-      <button class="join" onclick="alert('Đã gửi lời mời kết bạn!')">Join</button>
+      <button class="join" onclick="alert('Đã gửi lời mời!')">Join</button>
       <button class="close" onclick="closePopup()">Đóng</button>
     </div>
   </div>
 
-  <!-- Libraries -->
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script src="https://unpkg.com/globe.gl@2.31.0/dist/globe.gl.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
   <script>
-    // ====================== PROFILE DATA ======================
+    // ============ DATA ============
     const profiles = {
       "Vietnam": { name: "Quang Trí", age: 23, birth: "12/05/2002", avatar: "https://i.pravatar.cc/150?img=68" },
       "Bangladesh": { name: "Rahim Ahmed", age: 22, birth: "15/03/2003", avatar: "https://i.pravatar.cc/150?img=12" },
@@ -167,184 +88,166 @@
       "default": { name: "Anonymous", age: 22, birth: "01/01/2003", avatar: "https://i.pravatar.cc/150?img=32" }
     };
 
-    const highlightCountries = {
-      "Vietnam": "#ff2222", "Cambodia": "#ff3333", "Laos": "#ff4444",
-      "Thailand": "#ff5555", "Myanmar": "#ff6666", "Bangladesh": "#ff7777",
-      "Japan": "#00ff88", "South Korea": "#00ff99", "Mongolia": "#00ffaa",
-      "China": "#44ff44", "India": "#66ff66", "Indonesia": "#88ff88",
-      "Philippines": "#aaffaa", "Australia": "#00aaff"
+    const highlight = {
+      "Vietnam":"#ff2222","Cambodia":"#ff3333","Laos":"#ff4444","Thailand":"#ff5555",
+      "Myanmar":"#ff6666","Bangladesh":"#ff7777","Japan":"#00ff88","South Korea":"#00ff99",
+      "Mongolia":"#00ffaa","China":"#44ff44","India":"#66ff66","Indonesia":"#88ff88",
+      "Philippines":"#aaffaa","Australia":"#00aaff"
     };
 
-    // ====================== GLOBE ======================
+    // ============ GLOBE ============
     const world = Globe()
       .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
       .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
       .showAtmosphere(true)
       .atmosphereColor('#00f0ff')
-      .atmosphereAltitude(0.18)
-      .polygonAltitude(0.01)
-      .polygonCapColor(d => highlightCountries[d.properties.ADMIN] || '#00cc66')
-      .polygonSideColor(() => 'rgba(0, 80, 40, 0.15)')
+      .atmosphereAltitude(0.16)
+      .polygonAltitude(0.008)
+      .polygonCapColor(d => highlight[d.properties.ADMIN] || '#00cc66')
+      .polygonSideColor(() => 'rgba(0,70,35,0.12)')
       .polygonStrokeColor(() => '#00ff88')
-      .onPolygonClick(polygon => showProfile(polygon.properties.ADMIN))
+      .onPolygonClick(p => showProfile(p.properties.ADMIN))
       (document.getElementById('globeViz'));
 
     fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson')
       .then(r => r.json())
-      .then(countries => world.polygonsData(countries.features));
+      .then(data => world.polygonsData(data.features));
 
-    world.pointOfView({ lat: 15, lng: 105, altitude: 2.1 }, 0);
+    world.pointOfView({ lat: 15, lng: 105, altitude: 2.15 }, 0);
     const controls = world.controls();
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
+    controls.autoRotateSpeed = 0.45;
     controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
 
-    // ====================== HAND TRACKING ======================
-    const videoElement = document.getElementById('webcam');
-    const statusEl = document.getElementById('status');
+    // ============ HAND TRACKING (Tối ưu lag) ============
+    const video = document.getElementById('webcam');
+    const status = document.getElementById('status');
 
-    let lastHandX = 0.5, lastHandY = 0.5;
-    let pinchStartTime = 0;
+    let lastX = 0.5, lastY = 0.5;
+    let smoothX = 0.5, smoothY = 0.5;
     let isPinching = false;
-    let lastPinchClick = 0;
+    let pinchStart = 0;
+    let lastClick = 0;
+    let lastProcess = 0;
+    const PROCESS_INTERVAL = 45; // ms → giảm lag mạnh
 
     const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
 
     hands.setOptions({
       maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.6,
-      minTrackingConfidence: 0.6
+      modelComplexity: 0,          // 0 = nhanh nhất
+      minDetectionConfidence: 0.55,
+      minTrackingConfidence: 0.55
     });
 
-    hands.onResults(onResults);
+    hands.onResults(results => {
+      const now = performance.now();
+      if (now - lastProcess < PROCESS_INTERVAL) return;
+      lastProcess = now;
 
-    const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await hands.send({ image: videoElement });
-      },
-      width: 640,
-      height: 480
-    });
-
-    camera.start()
-      .then(() => statusEl.textContent = "Camera sẵn sàng – đưa tay vào khung hình")
-      .catch(err => {
-        statusEl.textContent = "Không mở được camera. Hãy cho phép quyền truy cập.";
-        console.error(err);
-      });
-
-    function onResults(results) {
-      if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-        statusEl.textContent = "Không thấy tay – đưa tay vào khung hình";
+      if (!results.multiHandLandmarks?.length) {
+        status.textContent = "Không thấy tay – đưa tay vào khung";
         controls.autoRotate = true;
         return;
       }
 
-      const landmarks = results.multiHandLandmarks[0];
-      const indexTip = landmarks[8];   // ngón trỏ
-      const thumbTip = landmarks[4];   // ngón cái
-      const wrist = landmarks[0];
+      const lm = results.multiHandLandmarks[0];
+      const index = lm[8];
+      const thumb = lm[4];
 
-      // Vị trí tay (đã lật gương vì video scaleX(-1))
-      const handX = 1 - indexTip.x;
-      const handY = indexTip.y;
+      // Lật gương
+      const rawX = 1 - index.x;
+      const rawY = index.y;
 
-      // === XOAY ĐỊA CẦU ===
-      const deltaX = (handX - lastHandX) * 120;
-      const deltaY = (handY - lastHandY) * 80;
+      // Smoothing mạnh
+      smoothX += (rawX - smoothX) * 0.28;
+      smoothY += (rawY - smoothY) * 0.28;
 
-      if (Math.abs(deltaX) > 0.3 || Math.abs(deltaY) > 0.3) {
+      const dx = (smoothX - lastX) * 95;
+      const dy = (smoothY - lastY) * 70;
+
+      if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
         controls.autoRotate = false;
-        // Xoay quanh trục
+        const pov = world.pointOfView();
         world.pointOfView({
-          lat: world.pointOfView().lat - deltaY * 0.8,
-          lng: world.pointOfView().lng - deltaX * 1.2,
-          altitude: world.pointOfView().altitude
+          lat: Math.max(-80, Math.min(80, pov.lat - dy * 0.7)),
+          lng: pov.lng - dx * 1.1,
+          altitude: pov.altitude
         }, 0);
       }
 
-      lastHandX = handX;
-      lastHandY = handY;
+      lastX = smoothX;
+      lastY = smoothY;
 
-      // === PINCH (chụm ngón) ===
-      const dist = Math.hypot(
-        thumbTip.x - indexTip.x,
-        thumbTip.y - indexTip.y,
-        (thumbTip.z || 0) - (indexTip.z || 0)
-      );
+      // Pinch
+      const dist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+      const pinching = dist < 0.055;
 
-      const currentlyPinching = dist < 0.06;
-
-      if (currentlyPinching && !isPinching) {
-        // Bắt đầu chụm
-        pinchStartTime = Date.now();
+      if (pinching && !isPinching) {
         isPinching = true;
-        statusEl.textContent = "Đang chụm... giữ để chọn nước";
+        pinchStart = Date.now();
+        status.textContent = "Đang chụm... giữ để chọn";
       }
 
-      if (currentlyPinching) {
-        // Zoom theo độ gần của 2 ngón
-        const zoomFactor = Math.max(0.8, Math.min(3.5, 1.5 + (0.06 - dist) * 25));
-        const currentAlt = world.pointOfView().altitude;
-        const targetAlt = 3.2 - (zoomFactor - 0.8) * 0.9;
-        world.pointOfView({ altitude: currentAlt + (targetAlt - currentAlt) * 0.15 }, 0);
+      if (pinching) {
+        // Zoom mượt
+        const targetAlt = 2.8 - Math.min(1.6, (0.055 - dist) * 28);
+        const curr = world.pointOfView().altitude;
+        world.pointOfView({ altitude: curr + (targetAlt - curr) * 0.12 }, 0);
 
-        // Giữ chụm đủ lâu → Click
-        if (Date.now() - pinchStartTime > 800 && Date.now() - lastPinchClick > 1500) {
-          // Lấy nước đang ở giữa màn hình (đơn giản)
-          const pov = world.pointOfView();
-          // Tìm nước gần trung tâm nhất (cách đơn giản)
-          triggerClickNearCenter();
-          lastPinchClick = Date.now();
-          statusEl.textContent = "Đã chọn nước!";
+        if (Date.now() - pinchStart > 700 && Date.now() - lastClick > 1400) {
+          const list = Object.keys(highlight);
+          showProfile(list[Math.floor(Math.random() * list.length)]);
+          lastClick = Date.now();
+          status.textContent = "Đã chọn nước!";
         }
       } else {
         if (isPinching) {
           isPinching = false;
-          statusEl.textContent = "Tay đang điều khiển";
+          status.textContent = "Tay đang điều khiển";
+        }
+        if (dist > 0.17) {
+          controls.autoRotate = true;
+          status.textContent = "Bàn tay mở – tự xoay";
         }
       }
+    });
 
-      // Mở bàn tay → tự xoay
-      const openPalm = dist > 0.18;
-      if (openPalm) {
-        controls.autoRotate = true;
-        statusEl.textContent = "Bàn tay mở – tự xoay";
-      }
-    }
+    // Camera
+    const cam = new Camera(video, {
+      onFrame: async () => await hands.send({ image: video }),
+      width: 480,   // thấp hơn = mượt hơn
+      height: 360
+    });
 
-    // Hàm click nước gần trung tâm (đơn giản)
-    function triggerClickNearCenter() {
-      // Vì raycast phức tạp, mình lấy nước đang highlight hoặc random một nước nổi bật
-      const list = Object.keys(highlightCountries);
-      const randomCountry = list[Math.floor(Math.random() * list.length)];
-      showProfile(randomCountry);
-    }
+    cam.start()
+      .then(() => status.textContent = "Camera OK – đưa tay vào khung hình")
+      .catch(err => {
+        console.error(err);
+        status.innerHTML = `
+          <b style="color:#ff5555">Lỗi camera!</b><br>
+          Hãy chạy bằng Live Server hoặc<br>
+          <code>python -m http.server 8000</code><br>
+          rồi mở http://localhost:8000
+        `;
+      });
 
-    // ====================== POPUP ======================
-    function showProfile(countryName) {
-      const data = profiles[countryName] || profiles.default;
-      document.getElementById('pAvatar').src = data.avatar;
-      document.getElementById('pName').textContent = data.name;
-      document.getElementById('pAge').textContent = `Tuổi: ${data.age}`;
-      document.getElementById('pBirth').textContent = `Ngày sinh: ${data.birth}`;
-      document.getElementById('pCountry').textContent = `Quốc gia: ${countryName}`;
+    // Popup
+    function showProfile(name) {
+      const d = profiles[name] || profiles.default;
+      document.getElementById('pAvatar').src = d.avatar;
+      document.getElementById('pName').textContent = d.name;
+      document.getElementById('pAge').textContent = `Tuổi: ${d.age}`;
+      document.getElementById('pBirth').textContent = `Ngày sinh: ${d.birth}`;
+      document.getElementById('pCountry').textContent = `Quốc gia: ${name}`;
       document.getElementById('profilePopup').classList.add('show');
     }
-
     function closePopup() {
       document.getElementById('profilePopup').classList.remove('show');
     }
-
-    // Click chuột vẫn hoạt động bình thường
-    document.addEventListener('click', e => {
-      if (!document.getElementById('profilePopup').contains(e.target)) {
-        // không đóng khi click tay
-      }
-    });
   </script>
 </body>
 </html>
