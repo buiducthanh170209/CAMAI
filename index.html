@@ -3,32 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bàn phím ảo - Gõ bằng tay qua Camera</title>
+  <title>Bàn phím ảo 2 Tay - Cảm biến chuẩn</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: linear-gradient(135deg, #0a0a1a, #001a2e);
+      background: linear-gradient(135deg, #070714, #001525);
       color: #fff;
       font-family: 'Segoe UI', system-ui, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px;
+      padding: 18px;
       overflow-x: hidden;
     }
 
     h1 {
-      font-size: 28px;
-      margin-bottom: 8px;
+      font-size: 26px;
+      margin-bottom: 6px;
       background: linear-gradient(90deg, #00f0ff, #ff00aa);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
     #status {
-      margin-bottom: 16px;
-      padding: 8px 20px;
+      margin-bottom: 14px;
+      padding: 8px 22px;
       background: rgba(0,240,255,0.1);
       border: 1px solid #00f0ff55;
       border-radius: 30px;
@@ -36,85 +36,85 @@
       color: #00f0ff;
     }
 
-    /* Ô gõ chữ */
     #text-area {
-      width: 90%;
-      max-width: 900px;
-      min-height: 140px;
-      background: rgba(0, 20, 40, 0.8);
-      border: 2px solid #00f0ff66;
+      width: 92%;
+      max-width: 920px;
+      min-height: 130px;
+      background: rgba(0, 18, 36, 0.85);
+      border: 2px solid #00f0ff55;
       border-radius: 16px;
-      padding: 20px;
-      font-size: 24px;
+      padding: 18px 22px;
+      font-size: 23px;
       line-height: 1.5;
       color: #e0f7ff;
-      margin-bottom: 25px;
+      margin-bottom: 22px;
       resize: none;
       outline: none;
       box-shadow: 0 0 30px #00f0ff22;
     }
 
-    /* Bàn phím */
     #keyboard {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      width: 95%;
-      max-width: 980px;
+      gap: 9px;
+      width: 96%;
+      max-width: 1000px;
       user-select: none;
     }
 
     .row {
       display: flex;
       justify-content: center;
-      gap: 8px;
+      gap: 7px;
     }
 
     .key {
-      background: linear-gradient(145deg, #0d2137, #081828);
-      border: 1px solid #00f0ff44;
+      background: linear-gradient(145deg, #0c1f33, #071522);
+      border: 1px solid #00f0ff40;
       border-radius: 10px;
-      color: #c0f0ff;
-      font-size: 18px;
+      color: #b8eaff;
+      font-size: 17px;
       font-weight: 500;
-      min-width: 52px;
-      height: 54px;
+      min-width: 51px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      transition: all 0.12s ease;
-      box-shadow: 0 4px 0 #003344;
+      transition: all 0.11s ease;
+      box-shadow: 0 4px 0 #002233;
       position: relative;
     }
 
-    .key:hover, .key.hover {
-      background: linear-gradient(145deg, #00c4d4, #0088aa);
+    .key.hover-left {
+      background: linear-gradient(145deg, #00c4d4, #0099bb);
       color: #000;
-      transform: translateY(-3px);
-      box-shadow: 0 7px 0 #005566;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #005566;
+    }
+    .key.hover-right {
+      background: linear-gradient(145deg, #ff66bb, #ee2288);
+      color: #000;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #880044;
     }
 
     .key.active {
-      background: linear-gradient(145deg, #00f0ff, #00aaff);
-      color: #000;
-      transform: translateY(2px);
-      box-shadow: 0 2px 0 #005566;
+      transform: translateY(3px) !important;
+      box-shadow: 0 1px 0 #003344 !important;
     }
 
-    .key.wide { min-width: 90px; }
-    .key.space { min-width: 320px; }
-    .key.shift { min-width: 100px; }
-    .key.enter { min-width: 100px; }
-    .key.backspace { min-width: 90px; }
+    .key.wide { min-width: 88px; }
+    .key.space { min-width: 340px; }
+    .key.shift { min-width: 96px; }
+    .key.enter { min-width: 96px; }
+    .key.backspace { min-width: 96px; }
 
-    /* Camera */
     #webcam {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 220px;
-      height: 165px;
+      bottom: 18px;
+      right: 18px;
+      width: 210px;
+      height: 158px;
       border: 2px solid #00f0ff;
       border-radius: 12px;
       transform: scaleX(-1);
@@ -123,58 +123,64 @@
       box-shadow: 0 0 20px #00f0ff55;
     }
 
-    /* Con trỏ tay */
-    #cursor {
+    .cursor {
       position: fixed;
-      width: 28px;
-      height: 28px;
-      border: 3px solid #00f0ff;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       pointer-events: none;
       z-index: 200;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 15px #00f0ff, inset 0 0 8px #00f0ff;
-      transition: transform 0.05s linear;
       display: none;
+      transition: transform 0.04s linear;
     }
-    #cursor.pinch {
-      background: #00f0ff88;
-      transform: translate(-50%, -50%) scale(0.7);
+    #cursor-left {
+      border: 3px solid #00f0ff;
+      box-shadow: 0 0 14px #00f0ff, inset 0 0 6px #00f0ff;
+    }
+    #cursor-right {
+      border: 3px solid #ff00aa;
+      box-shadow: 0 0 14px #ff00aa, inset 0 0 6px #ff00aa;
+    }
+    .cursor.pinch {
+      transform: translate(-50%, -50%) scale(0.65);
+      background: rgba(255,255,255,0.25);
     }
 
     .hint {
       position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(0,15,30,0.9);
-      border: 1px solid #00f0ff44;
-      padding: 14px 18px;
+      bottom: 18px;
+      left: 18px;
+      background: rgba(0,12,25,0.92);
+      border: 1px solid #00f0ff40;
+      padding: 13px 16px;
       border-radius: 14px;
       font-size: 13px;
       line-height: 1.6;
       color: #8af4ff;
-      max-width: 260px;
+      max-width: 250px;
       z-index: 50;
     }
   </style>
 </head>
 <body>
-  <h1>Bàn phím ảo - Gõ bằng tay</h1>
+  <h1>Bàn phím ảo 2 Tay</h1>
   <div id="status">Đang khởi động camera...</div>
 
-  <textarea id="text-area" placeholder="Chữ bạn gõ sẽ hiện ở đây..."></textarea>
+  <textarea id="text-area" placeholder="Gõ chữ bằng cả 2 tay ở đây..."></textarea>
 
   <div id="keyboard"></div>
 
   <video id="webcam" autoplay playsinline muted></video>
-  <div id="cursor"></div>
+  <div id="cursor-left" class="cursor"></div>
+  <div id="cursor-right" class="cursor"></div>
 
   <div class="hint">
-    <b>Hướng dẫn:</b><br>
-    • Di chuyển ngón trỏ = di chuyển con trỏ<br>
-    • Chụm ngón cái + ngón trỏ = nhấn phím<br>
-    • Giữ Shift để gõ chữ hoa<br>
-    • Backspace để xóa
+    <b>Hướng dẫn 2 tay:</b><br>
+    • Tay trái (xanh) + Tay phải (hồng)<br>
+    • Di chuyển ngón trỏ = chọn phím<br>
+    • Chụm ngón cái + trỏ = nhấn<br>
+    • Cả 2 tay dùng độc lập
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -193,9 +199,8 @@
     const keyboardEl = document.getElementById('keyboard');
     const textArea = document.getElementById('text-area');
     let isShift = false;
-    let lastKeyTime = 0;
+    const lastPressTime = { left: 0, right: 0 };
 
-    // Tạo bàn phím
     layout.forEach(row => {
       const rowDiv = document.createElement('div');
       rowDiv.className = 'row';
@@ -216,16 +221,15 @@
       keyboardEl.appendChild(rowDiv);
     });
 
-    // ====================== LOGIC GÕ ======================
-    function pressKey(key) {
+    function pressKey(key, hand) {
       const now = Date.now();
-      if (now - lastKeyTime < 280) return; // chống spam
-      lastKeyTime = now;
+      if (now - lastPressTime[hand] < 320) return;
+      lastPressTime[hand] = now;
 
       const keyEl = document.querySelector(`.key[data-key="${key}"]`);
       if (keyEl) {
         keyEl.classList.add('active');
-        setTimeout(() => keyEl.classList.remove('active'), 150);
+        setTimeout(() => keyEl.classList.remove('active'), 140);
       }
 
       if (key === 'Backspace') {
@@ -241,7 +245,6 @@
         let char = key;
         if (isShift) {
           char = char.toUpperCase();
-          // Tự tắt shift sau khi gõ 1 ký tự (giống caps lock tạm)
           isShift = false;
           updateShiftUI();
         }
@@ -252,81 +255,109 @@
     }
 
     function updateShiftUI() {
-      const shiftKeys = document.querySelectorAll('.key[data-key="Shift"]');
-      shiftKeys.forEach(k => {
+      document.querySelectorAll('.key[data-key="Shift"]').forEach(k => {
         k.style.background = isShift ? 'linear-gradient(145deg, #00f0ff, #00aaff)' : '';
         k.style.color = isShift ? '#000' : '';
       });
     }
 
-    // ====================== HAND TRACKING ======================
+    // ====================== HAND TRACKING 2 TAY ======================
     const video = document.getElementById('webcam');
-    const cursor = document.getElementById('cursor');
+    const cursorLeft = document.getElementById('cursor-left');
+    const cursorRight = document.getElementById('cursor-right');
     const status = document.getElementById('status');
-    let isPinching = false;
-    let lastPinch = false;
+
+    // Smoothing
+    const smooth = {
+      left: { x: 0, y: 0 },
+      right: { x: 0, y: 0 }
+    };
+    const lastPinch = { left: false, right: false };
 
     const hands = new Hands({
       locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
 
     hands.setOptions({
-      maxNumHands: 1,
+      maxNumHands: 2,
       modelComplexity: 1,
-      minDetectionConfidence: 0.7,
-      minTrackingConfidence: 0.7
+      minDetectionConfidence: 0.72,
+      minTrackingConfidence: 0.72
     });
 
     hands.onResults(results => {
+      // Reset hover
+      document.querySelectorAll('.key').forEach(k => {
+        k.classList.remove('hover-left', 'hover-right');
+      });
+
+      cursorLeft.style.display = 'none';
+      cursorRight.style.display = 'none';
+
       if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-        cursor.style.display = 'none';
-        status.textContent = 'Không thấy tay – Đưa tay vào khung hình';
-        // Xóa hover
-        document.querySelectorAll('.key.hover').forEach(k => k.classList.remove('hover'));
+        status.textContent = 'Không thấy tay – Đưa cả 2 tay vào khung hình';
         return;
       }
 
-      const landmarks = results.multiHandLandmarks[0];
-      const indexTip = landmarks[8];
-      const thumbTip = landmarks[4];
+      let activeHands = 0;
 
-      // Tọa độ màn hình (đã lật gương)
-      const x = (1 - indexTip.x) * window.innerWidth;
-      const y = indexTip.y * window.innerHeight;
+      for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+        const landmarks = results.multiHandLandmarks[i];
+        const label = results.multiHandedness[i].label; // "Left" hoặc "Right"
+        const isLeft = label === "Left"; // vì video bị lật
 
-      cursor.style.display = 'block';
-      cursor.style.left = x + 'px';
-      cursor.style.top = y + 'px';
+        const indexTip = landmarks[8];
+        const thumbTip = landmarks[4];
 
-      // Kiểm tra pinch
-      const dist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-      isPinching = dist < 0.05;
+        // Tọa độ thô
+        let rawX = (1 - indexTip.x) * window.innerWidth;
+        let rawY = indexTip.y * window.innerHeight;
 
-      if (isPinching) {
-        cursor.classList.add('pinch');
-      } else {
-        cursor.classList.remove('pinch');
-      }
+        // Smoothing
+        const hand = isLeft ? 'left' : 'right';
+        smooth[hand].x += (rawX - smooth[hand].x) * 0.35;
+        smooth[hand].y += (rawY - smooth[hand].y) * 0.35;
 
-      // Tìm phím đang hover
-      let hoveredKey = null;
-      document.querySelectorAll('.key').forEach(keyEl => {
-        const rect = keyEl.getBoundingClientRect();
-        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-          keyEl.classList.add('hover');
-          hoveredKey = keyEl.dataset.key;
-        } else {
-          keyEl.classList.remove('hover');
+        const x = smooth[hand].x;
+        const y = smooth[hand].y;
+
+        // Cursor
+        const cursor = isLeft ? cursorLeft : cursorRight;
+        cursor.style.display = 'block';
+        cursor.style.left = x + 'px';
+        cursor.style.top = y + 'px';
+
+        // Pinch detection (chuẩn hơn)
+        const dist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+        const isPinching = dist < 0.048;
+
+        if (isPinching) cursor.classList.add('pinch');
+        else cursor.classList.remove('pinch');
+
+        // Tìm phím đang trỏ
+        let hoveredKey = null;
+        document.querySelectorAll('.key').forEach(keyEl => {
+          const rect = keyEl.getBoundingClientRect();
+          // Vùng hit rộng hơn một chút
+          const padding = 6;
+          if (x >= rect.left - padding && x <= rect.right + padding &&
+              y >= rect.top - padding && y <= rect.bottom + padding) {
+            keyEl.classList.add(isLeft ? 'hover-left' : 'hover-right');
+            hoveredKey = keyEl.dataset.key;
+          }
+        });
+
+        // Nhấn phím
+        if (isPinching && !lastPinch[hand] && hoveredKey) {
+          pressKey(hoveredKey, hand);
         }
-      });
+        lastPinch[hand] = isPinching;
 
-      // Nhấn phím khi vừa chụm
-      if (isPinching && !lastPinch && hoveredKey) {
-        pressKey(hoveredKey);
+        activeHands++;
       }
-      lastPinch = isPinching;
 
-      status.textContent = isPinching ? 'Đang nhấn phím...' : 'Di chuyển ngón trỏ để chọn phím';
+      if (activeHands === 2) status.textContent = 'Cả 2 tay đang hoạt động';
+      else if (activeHands === 1) status.textContent = '1 tay đang hoạt động';
     });
 
     // Camera
@@ -337,9 +368,9 @@
     });
 
     camera.start()
-      .then(() => status.textContent = 'Camera sẵn sàng – Đưa tay vào khung hình')
+      .then(() => status.textContent = 'Camera sẵn sàng – Đưa cả 2 tay vào khung')
       .catch(() => {
-        status.innerHTML = '<span style="color:#ff5555">Lỗi camera!</span> Hãy chạy bằng Live Server hoặc python -m http.server';
+        status.innerHTML = '<span style="color:#ff5555">Lỗi camera!</span> Hãy chạy bằng Live Server';
       });
   </script>
 </body>
