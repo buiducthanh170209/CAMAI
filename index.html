@@ -1,602 +1,307 @@
 from pathlib import Path
 
-html = r'''<!DOCTYPE html>
+html = r'''<!doctype html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>EARTH 3D — HAND TRACKING PRO</title>
-
+<title>Earth 3D Hand Control PRO</title>
 <style>
-*{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font-family:Arial,sans-serif}
 #earth{position:fixed;inset:0}
-#hud{position:fixed;inset:0;pointer-events:none}
-#title{
- position:absolute;left:20px;top:17px;font-size:13px;letter-spacing:3px;
- color:#8ceeff;text-shadow:0 0 14px #00bfff
-}
-#instructions{
- position:absolute;right:20px;top:15px;text-align:right;
- color:#b5d8e5;font-size:11px;line-height:1.65;
- background:#02080dcc;border:1px solid #173444;padding:9px 12px;border-radius:8px
-}
-#cameraPanel{
- pointer-events:auto;position:absolute;right:18px;bottom:18px;
- width:300px;height:225px;background:#02080d;border:1px solid #2ce6ff;
- border-radius:12px;overflow:hidden;box-shadow:0 0 30px #007dff40
-}
-#video{position:absolute;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);background:#02080d}
-#handCanvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
-#camLabel{
- position:absolute;left:9px;top:8px;z-index:3;font-size:10px;letter-spacing:1px;
- color:#8ff5ff;text-shadow:0 1px 6px #000
-}
-#fps{
- position:absolute;right:9px;top:8px;z-index:3;font-size:10px;color:#8ff5ff;
- text-shadow:0 1px 6px #000
-}
-#status{
- pointer-events:none;position:absolute;left:18px;bottom:18px;
- background:#02080ded;border:1px solid #24485b;border-radius:10px;
- padding:10px 13px;font-size:12px;color:#b9dce8
-}
-#start{
- pointer-events:auto;position:absolute;left:50%;top:18px;transform:translateX(-50%);
- z-index:20;background:#062630;border:1px solid #3beaff;color:#a4f8ff;
- border-radius:8px;padding:11px 18px;font-weight:800;cursor:pointer
-}
-#mode{
- pointer-events:none;position:absolute;left:50%;top:70px;transform:translateX(-50%);
- padding:7px 12px;border:1px solid #1d5668;background:#020a0ed9;
- border-radius:20px;font-size:11px;color:#79eaff
-}
-#hint{
- position:absolute;left:50%;bottom:250px;transform:translateX(-50%);
- width:min(620px,90vw);text-align:center;padding:8px 12px;
- background:#02080dcc;border:1px solid #193b4b;border-radius:8px;
- color:#9fbac5;font-size:11px
-}
-#loading{
- position:fixed;z-index:100;inset:0;background:#000;display:grid;place-items:center;
- text-align:center;color:#82edff;font-size:14px;letter-spacing:1px
-}
-#loading div{margin-top:8px;font-size:11px;color:#607d88;letter-spacing:0}
-@media(max-width:700px){
- #cameraPanel{width:190px;height:143px;right:8px;bottom:8px}
- #status{left:8px;bottom:8px;font-size:10px}
- #instructions{right:8px;top:8px;font-size:9px}
- #title{left:10px;top:10px}
- #hint{bottom:165px;font-size:9px}
-}
+#ui{position:fixed;inset:0;pointer-events:none}
+#title{position:absolute;left:18px;top:16px;color:#82eeff;font-size:12px;letter-spacing:3px;text-shadow:0 0 14px #00bfff}
+#help{position:absolute;right:15px;top:14px;padding:9px 12px;border:1px solid #214757;border-radius:9px;background:#02080ddd;color:#a9c8d2;font-size:10px;line-height:1.6;text-align:right}
+#start{pointer-events:auto;position:absolute;left:50%;top:16px;transform:translateX(-50%);padding:10px 17px;border:1px solid #42eaff;border-radius:8px;background:#062832;color:#a5f6ff;font-weight:bold;cursor:pointer}
+#mode{position:absolute;left:50%;top:61px;transform:translateX(-50%);padding:6px 12px;border:1px solid #235666;border-radius:18px;background:#020a0ee8;color:#76eaff;font-size:11px}
+#status{position:absolute;left:16px;bottom:16px;padding:9px 12px;border:1px solid #234654;border-radius:9px;background:#02090eed;color:#b8dce7;font-size:11px}
+#cam{pointer-events:auto;position:absolute;right:15px;bottom:15px;width:290px;height:218px;border:1px solid #36eaff;border-radius:12px;overflow:hidden;background:#02080d;box-shadow:0 0 28px #008cff35}
+#video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#hands{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+#camlabel,#fps{position:absolute;z-index:2;top:7px;color:#a2f6ff;font-size:9px;text-shadow:0 1px 5px #000}
+#camlabel{left:8px}#fps{right:8px}
+@media(max-width:700px){#cam{width:185px;height:139px;right:7px;bottom:7px}#status{left:7px;bottom:7px;font-size:9px}#help{right:7px;top:7px;font-size:8px}#title{left:8px;top:8px}}
 </style>
 </head>
-
 <body>
 <div id="earth"></div>
-
-<div id="loading">
- <section>
-  <b>EARTH 3D HAND TRACKING</b>
-  <div>Đang tải hệ thống nhận diện bàn tay...</div>
- </section>
+<div id="ui">
+<div id="title">WORLD // HAND CONTROL PRO</div>
+<div id="help">☝️ XOAY<br>🤏 ZOOM<br>✋ GIỮ<br>✌️ HAI TAY ZOOM</div>
+<button id="start">📷 BẬT CAMERA</button>
+<div id="mode">CHỜ BÀN TAY</div>
+<div id="status">Trái Đất đang tải...</div>
+<div id="cam"><span id="camlabel">HAND TRACKING</span><span id="fps">-- FPS</span><video id="video" autoplay muted playsinline></video><canvas id="hands"></canvas></div>
 </div>
 
-<div id="hud">
- <div id="title">WORLD // HAND CONTROL PRO</div>
-
- <div id="instructions">
-  ☝️ NGÓN TRỎ: XOAY<br>
-  🤏 NGÓN CÁI + TRỎ: ZOOM<br>
-  ✊ NẮM TAY: KÉO / GIỮ<br>
-  ✋ MỞ TAY: DỪNG<br>
-  ✌️ 2 TAY: PHÓNG TO / THU NHỎ
- </div>
-
- <button id="start">📷 BẬT CAMERA</button>
- <div id="mode">CHẾ ĐỘ: CHỜ BÀN TAY</div>
-
- <div id="cameraPanel">
-  <div id="camLabel">LIVE HAND CAMERA</div>
-  <div id="fps">-- FPS</div>
-  <video id="video" autoplay muted playsinline></video>
-  <canvas id="handCanvas"></canvas>
- </div>
-
- <div id="hint">
-  Đưa bàn tay cách camera khoảng 30–70 cm. Sau khi nhận diện, di chuyển ngón trỏ
-  chậm sang trái/phải để xoay địa cầu.
- </div>
-
- <div id="status">Camera chưa bật</div>
-</div>
-
-<!-- 3D -->
+<!-- Three.js + Globe.gl -->
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 <script src="https://unpkg.com/globe.gl"></script>
 
-<!-- MediaPipe Hands -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466862/drawing_utils.js"></script>
-
 <script>
-"use strict";
-
-/* =========================================================
-   1. TRÁI ĐẤT 3D
-   ========================================================= */
-
-const earthElement=document.getElementById("earth");
-
-const globe=Globe()(earthElement)
- .backgroundColor("#000000")
- .showAtmosphere(true)
- .atmosphereColor("#21baff")
- .atmosphereAltitude(0.16)
- .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-night.jpg")
- .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
- .showGraticules(false);
-
-const controls=globe.controls();
-
-controls.enableDamping=true;
-controls.dampingFactor=0.075;
-controls.rotateSpeed=0.5;
-controls.zoomSpeed=0.55;
-controls.panSpeed=0.35;
-controls.minDistance=150;
-controls.maxDistance=440;
-controls.autoRotate=false;
-
-/* Không để chuột/cảm ứng xung đột khi tay đang điều khiển */
-let handControl=false;
-
-/* =========================================================
-   2. CAMERA + CANVAS
-   ========================================================= */
-
-const video=document.getElementById("video");
-const canvas=document.getElementById("handCanvas");
-const ctx=canvas.getContext("2d",{alpha:true});
-
-const startButton=document.getElementById("start");
+/* ==========================================================
+   EARTH: khởi động độc lập với AI.
+   Vì vậy MediaPipe lỗi cũng không làm màn hình trắng/đen.
+   ========================================================== */
+const earth=document.getElementById("earth");
 const statusBox=document.getElementById("status");
 const modeBox=document.getElementById("mode");
-const fpsBox=document.getElementById("fps");
-const loading=document.getElementById("loading");
 
-let cameraStream=null;
-let mediapipeCamera=null;
-
-function status(text){
- statusBox.textContent=text;
+let globe;
+try{
+ globe=Globe()(earth)
+  .backgroundColor("#000")
+  .showAtmosphere(true)
+  .atmosphereColor("#20bfff")
+  .atmosphereAltitude(.16)
+  .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-night.jpg")
+  .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png");
+ const c=globe.controls();
+ c.enableDamping=true;
+ c.dampingFactor=.075;
+ c.rotateSpeed=.5;
+ c.zoomSpeed=.55;
+ c.minDistance=150;
+ c.maxDistance=440;
+ globe.pointOfView({lat:20,lng:105,altitude:2.2},0);
+ statusBox.textContent="🌍 Trái Đất sẵn sàng";
+}catch(e){
+ console.error(e);
+ statusBox.textContent="❌ Không tải được Globe.gl";
 }
+
+/* ==========================================================
+   CAMERA
+   ========================================================== */
+const video=document.getElementById("video");
+const canvas=document.getElementById("hands");
+const ctx=canvas.getContext("2d",{alpha:true});
+const start=document.getElementById("start");
+const fpsText=document.getElementById("fps");
 
 function resizeCanvas(){
- const rect=video.getBoundingClientRect();
- const w=Math.max(1,Math.floor(rect.width*2));
- const h=Math.max(1,Math.floor(rect.height*2));
- if(canvas.width!==w || canvas.height!==h){
-  canvas.width=w;
-  canvas.height=h;
+ const r=video.getBoundingClientRect();
+ canvas.width=Math.max(1,Math.round(r.width*1.5));
+ canvas.height=Math.max(1,Math.round(r.height*1.5));
+}
+addEventListener("resize",resizeCanvas);
+
+function setStatus(s){statusBox.textContent=s}
+
+/* ==========================================================
+   LOAD MEDIAPIPE SAU KHI TRÁI ĐẤT ĐÃ CHẠY
+   Không dùng loading screen.
+   ========================================================== */
+let handsAPI=null;
+let cameraAPI=null;
+let detector=null;
+let aiReady=false;
+let aiBusy=false;
+let lastAI=0;
+const AI_INTERVAL=45; // ~22 FPS, giảm tải
+
+function loadScript(src){
+ return new Promise((resolve,reject)=>{
+  const s=document.createElement("script");
+  s.src=src;
+  s.async=true;
+  s.onload=()=>resolve();
+  s.onerror=()=>reject(new Error("Không tải được "+src));
+  document.head.appendChild(s);
+ });
+}
+
+async function loadAI(){
+ try{
+  setStatus("⏳ Đang tải AI nhận diện tay...");
+  await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js");
+  await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js");
+  await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466862/drawing_utils.js");
+
+  if(typeof Hands==="undefined")throw new Error("Hands chưa được tải");
+  if(typeof Camera==="undefined")throw new Error("CameraUtils chưa được tải");
+
+  detector=new Hands({
+   locateFile:file=>"https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/"+file
+  });
+
+  detector.setOptions({
+   maxNumHands:2,
+   modelComplexity:0,
+   minDetectionConfidence:.60,
+   minTrackingConfidence:.58
+  });
+
+  detector.onResults(onHands);
+  aiReady=true;
+  setStatus("✅ AI sẵn sàng — bật Camera");
+ }catch(e){
+  console.error(e);
+  aiReady=false;
+  setStatus("⚠️ AI không tải được. Kiểm tra mạng/CDN.");
  }
 }
 
-window.addEventListener("resize",resizeCanvas);
+/* ==========================================================
+   HAND MATH
+   ========================================================== */
+const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const M=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 
-/* =========================================================
-   3. HÌNH HỌC BÀN TAY
-   ========================================================= */
-
-function dist(a,b){
- return Math.hypot(a.x-b.x,a.y-b.y);
-}
-
-function midpoint(a,b){
- return {x:(a.x+b.x)/2,y:(a.y+b.y)/2};
-}
-
-function clamp(v,min,max){
- return Math.max(min,Math.min(max,v));
-}
-
-/*
- MediaPipe:
- 0  cổ tay
- 4  đầu ngón cái
- 8  đầu ngón trỏ
- 12 đầu ngón giữa
- 16 đầu ngón áp út
- 20 đầu ngón út
-*/
-
-function fingerExtended(lm,tip,pip){
- return lm[tip].y < lm[pip].y;
-}
-
+function extended(lm,t,p){return lm[t].y<lm[p].y}
 function openHand(lm){
- return fingerExtended(lm,8,6) &&
-        fingerExtended(lm,12,10) &&
-        fingerExtended(lm,16,14) &&
-        fingerExtended(lm,20,18);
+ return extended(lm,8,6)&&extended(lm,12,10)&&extended(lm,16,14)&&extended(lm,20,18);
 }
+function pinch(lm){return D(lm[4],lm[8])<.075}
 
-function fist(lm){
- return !fingerExtended(lm,8,6) &&
-        !fingerExtended(lm,12,10) &&
-        !fingerExtended(lm,16,14) &&
-        !fingerExtended(lm,20,18);
-}
+/* ==========================================================
+   HAND STATE + SMOOTHING
+   ========================================================== */
+let prevIndex=null;
+let prevPinch=null;
+let prevTwoDist=null;
+let prevTwoCenter=null;
+let vx=0,vy=0;
+let noHand=0;
 
-function pinch(lm){
- const d=dist(lm[4],lm[8]);
- return d < 0.075;
-}
-
-function pinchAmount(lm){
- return dist(lm[4],lm[8]);
-}
-
-function palmSize(lm){
- return Math.max(0.03,dist(lm[0],lm[9]));
-}
-
-/* =========================================================
-   4. TRẠNG THÁI ĐIỀU KHIỂN
-   ========================================================= */
-
-let previousIndex=null;
-let previousPinch=null;
-let previousTwoHandDistance=null;
-
-let smoothDX=0;
-let smoothDY=0;
-let smoothZoom=0;
-
-let missingFrames=0;
-let frameCounter=0;
-let fpsTime=performance.now();
-
-/* Hai tay */
-let previousCenter=null;
-
-/* =========================================================
-   5. XỬ LÝ KẾT QUẢ AI
-   ========================================================= */
-
-function processHands(results){
+function onHands(result){
+ const now=performance.now();
+ if(now-lastAI<AI_INTERVAL)return;
+ lastAI=now;
 
  ctx.clearRect(0,0,canvas.width,canvas.height);
+ const hands=result.multiHandLandmarks||[];
 
- const hands=results.multiHandLandmarks || [];
-
- if(hands.length===0){
-  missingFrames++;
-
-  if(missingFrames>5){
-   previousIndex=null;
-   previousPinch=null;
-   previousTwoHandDistance=null;
-   previousCenter=null;
-   handControl=false;
-
-   modeBox.textContent="CHẾ ĐỘ: CHỜ BÀN TAY";
-   status("🖐️ Đưa bàn tay vào khung camera");
+ if(!hands.length){
+  noHand++;
+  if(noHand>5){
+   prevIndex=null;prevPinch=null;prevTwoDist=null;prevTwoCenter=null;
+   modeBox.textContent="CHỜ BÀN TAY";
+   setStatus("🖐️ Đưa tay vào camera");
   }
-
   return;
  }
+ noHand=0;
 
- missingFrames=0;
- handControl=true;
+ for(const lm of hands){
+  if(typeof drawConnectors==="function")
+   drawConnectors(ctx,lm,HAND_CONNECTIONS,{color:"#2ee7ff",lineWidth:2});
+  if(typeof drawLandmarks==="function")
+   drawLandmarks(ctx,lm,{color:"#fff",fillColor:"#12cfff",lineWidth:1,radius:3});
 
- /* Vẽ toàn bộ 21 điểm của mỗi bàn tay */
- for(let i=0;i<hands.length;i++){
-
-  const lm=hands[i];
-
-  if(typeof drawConnectors==="function"){
-   drawConnectors(
-    ctx,
-    lm,
-    HAND_CONNECTIONS,
-    {color:"#31e6ff",lineWidth:3}
-   );
-  }
-
-  if(typeof drawLandmarks==="function"){
-   drawLandmarks(
-    ctx,
-    lm,
-    {color:"#ffffff",fillColor:"#16cfff",lineWidth:1,radius:4}
-   );
-  }
-
-  /* Làm đầu ngón trỏ to hơn */
-  const index=lm[8];
-
+  const p=lm[8];
   ctx.beginPath();
-  ctx.arc(
-   index.x*canvas.width,
-   index.y*canvas.height,
-   9,
-   0,
-   Math.PI*2
-  );
-  ctx.strokeStyle="#ffff00";
-  ctx.lineWidth=3;
+  ctx.arc(p.x*canvas.width,p.y*canvas.height,8,0,Math.PI*2);
+  ctx.strokeStyle="#fff500";
+  ctx.lineWidth=2;
   ctx.stroke();
  }
 
- /* =====================================================
-    5A. HAI TAY
-    ===================================================== */
+ const controls=globe.controls();
 
+ /* Hai tay: khoảng cách = zoom, tâm hai tay = xoay */
  if(hands.length>=2){
+  const a=hands[0],b=hands[1];
+  const ca=M(a[0],a[9]),cb=M(b[0],b[9]);
+  const center=M(ca,cb);
+  const td=D(ca,cb);
 
-  const a=hands[0];
-  const b=hands[1];
-
-  const ca=midpoint(a[0],a[9]);
-  const cb=midpoint(b[0],b[9]);
-
-  const center=midpoint(ca,cb);
-  const handDistance=dist(ca,cb);
-
-  if(previousTwoHandDistance!==null){
-
-   const delta=handDistance-previousTwoHandDistance;
-
-   /*
-    Hai tay ra xa -> zoom in
-    Hai tay lại gần -> zoom out
-   */
-   if(Math.abs(delta)>0.004){
-
-    const amount=clamp(delta*7,-0.28,0.28);
-
-    if(amount>0){
-     controls.dollyIn(1+amount);
-    }else{
-     controls.dollyOut(1+Math.abs(amount));
-    }
-
+  if(prevTwoDist!==null){
+   const dz=td-prevTwoDist;
+   if(Math.abs(dz)>.004){
+    const amount=clamp(Math.abs(dz)*5,.005,.15);
+    if(dz>0)controls.dollyIn(1+amount);
+    else controls.dollyOut(1+amount);
     controls.update();
    }
   }
-
-  previousTwoHandDistance=handDistance;
-
-  if(previousCenter){
-   const dx=center.x-previousCenter.x;
-   const dy=center.y-previousCenter.y;
-
-   /*
-    Hai tay cùng di chuyển -> xoay nhẹ
-   */
-   controls.rotateLeft(dx*2.5);
-   controls.rotateUp(dy*1.7);
+  if(prevTwoCenter){
+   controls.rotateLeft((center.x-prevTwoCenter.x)*2.7);
+   controls.rotateUp((center.y-prevTwoCenter.y)*1.8);
    controls.update();
   }
-
-  previousCenter=center;
-
-  previousIndex=null;
-  previousPinch=null;
-
-  modeBox.textContent="CHẾ ĐỘ: ✌️ HAI TAY";
-  status("✌️ Hai tay: kéo để xoay • xa/gần để zoom");
-
+  prevTwoDist=td;
+  prevTwoCenter=center;
+  prevIndex=null;prevPinch=null;
+  modeBox.textContent="✌️ HAI TAY";
+  setStatus("✌️ Hai tay: kéo để xoay • xa/gần để zoom");
   return;
  }
 
- previousTwoHandDistance=null;
- previousCenter=null;
+ prevTwoDist=null;prevTwoCenter=null;
 
- /* =====================================================
-    5B. MỘT TAY
-    ===================================================== */
+ const lm=hands[0],index=lm[8];
 
- const lm=hands[0];
-
- const index=lm[8];
-
- const isOpen=openHand(lm);
- const isFist=fist(lm);
- const isPinch=pinch(lm);
- const pAmount=pinchAmount(lm);
-
- /* =====================================================
-    5C. CHỤM NGÓN -> ZOOM
-    ===================================================== */
-
- if(isPinch){
-
-  if(previousPinch!==null){
-
-   const delta=pAmount-previousPinch;
-
-   if(Math.abs(delta)>0.006){
-
-    /*
-     Khoảng cách tăng -> zoom out
-     Khoảng cách giảm -> zoom in
-    */
-    if(delta<0){
-     controls.dollyIn(1+clamp(-delta*4,0,0.18));
-    }else{
-     controls.dollyOut(1+clamp(delta*4,0,0.18));
-    }
-
+ /* Pinch */
+ if(pinch(lm)){
+  const pd=D(lm[4],lm[8]);
+  if(prevPinch!==null){
+   const dz=pd-prevPinch;
+   if(Math.abs(dz)>.006){
+    const amount=clamp(Math.abs(dz)*4,.004,.12);
+    if(dz<0)controls.dollyIn(1+amount);
+    else controls.dollyOut(1+amount);
     controls.update();
    }
   }
+  prevPinch=pd;
+  prevIndex=null;
+  modeBox.textContent="🤏 ZOOM";
+  setStatus("🤏 Chụm ngón cái + ngón trỏ");
+  return;
+ }
+ prevPinch=null;
 
-  previousPinch=pAmount;
-  previousIndex=null;
-
-  modeBox.textContent="CHẾ ĐỘ: 🤏 ZOOM";
-  status("🤏 Chụm ngón cái + trỏ để zoom");
-
+ /* Open hand = hold */
+ if(openHand(lm)){
+  prevIndex=index;
+  vx*=.5;vy*=.5;
+  modeBox.textContent="✋ GIỮ";
+  setStatus("✋ Mở tay — giữ Trái Đất");
   return;
  }
 
- previousPinch=null;
-
- /* =====================================================
-    5D. NẮM TAY -> KÉO
-    ===================================================== */
-
- if(isFist){
-
-  if(previousIndex){
-
-   const dx=index.x-previousIndex.x;
-   const dy=index.y-previousIndex.y;
-
-   /*
-    Kéo tay tạo lực xoay.
-    Có smoothing để giảm rung.
-   */
-   smoothDX=smoothDX*0.75+dx*0.25;
-   smoothDY=smoothDY*0.75+dy*0.25;
-
-   if(Math.abs(smoothDX)>0.001 || Math.abs(smoothDY)>0.001){
-
-    controls.rotateLeft(smoothDX*6);
-    controls.rotateUp(smoothDY*4);
-
-    controls.update();
-   }
-  }
-
-  previousIndex=index;
-
-  modeBox.textContent="CHẾ ĐỘ: ✊ KÉO";
-  status("✊ Nắm tay + di chuyển để xoay");
-
-  return;
- }
-
- /* =====================================================
-    5E. MỞ TAY -> DỪNG
-    ===================================================== */
-
- if(isOpen){
-
-  previousIndex=index;
-  smoothDX*=0.5;
-  smoothDY*=0.5;
-
-  modeBox.textContent="CHẾ ĐỘ: ✋ GIỮ";
-  status("✋ Mở bàn tay — giữ Trái Đất");
-
-  return;
- }
-
- /* =====================================================
-    5F. NGÓN TRỎ -> XOAY
-    ===================================================== */
-
- if(previousIndex){
-
-  const dx=index.x-previousIndex.x;
-  const dy=index.y-previousIndex.y;
-
-  smoothDX=smoothDX*0.72+dx*0.28;
-  smoothDY=smoothDY*0.72+dy*0.28;
-
-  /*
-   Dead-zone nhỏ để camera không tự rung.
-  */
-  if(Math.abs(smoothDX)>0.0015 || Math.abs(smoothDY)>0.0015){
-
-   controls.rotateLeft(smoothDX*7);
-   controls.rotateUp(smoothDY*4.5);
-
+ /* Index = rotate */
+ if(prevIndex){
+  const dx=index.x-prevIndex.x;
+  const dy=index.y-prevIndex.y;
+  vx=vx*.72+dx*.28;
+  vy=vy*.72+dy*.28;
+  if(Math.abs(vx)>.0015||Math.abs(vy)>.0015){
+   controls.rotateLeft(vx*7);
+   controls.rotateUp(vy*4.5);
    controls.update();
   }
  }
-
- previousIndex=index;
-
- modeBox.textContent="CHẾ ĐỘ: ☝️ XOAY";
- status("☝️ Ngón trỏ đang điều khiển");
+ prevIndex=index;
+ modeBox.textContent="☝️ XOAY";
+ setStatus("☝️ Di chuyển ngón trỏ để xoay");
 }
 
-/* =========================================================
-   6. FPS
-   ========================================================= */
-
-function updateFPS(){
- frameCounter++;
-
- const now=performance.now();
-
- if(now-fpsTime>1000){
-  fpsBox.textContent=frameCounter+" FPS";
-  frameCounter=0;
-  fpsTime=now;
- }
-
- requestAnimationFrame(updateFPS);
-}
-
-updateFPS();
-
-/* =========================================================
-   7. MEDIAPIPE
-   ========================================================= */
-
-let handsDetector=null;
-
-function createDetector(){
-
- handsDetector=new Hands({
-  locateFile:(file)=>{
-   return "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/"+file;
-  }
- });
-
- handsDetector.setOptions({
-  maxNumHands:2,
-
-  /*
-   0 = nhẹ và nhanh
-   1/2 = chính xác hơn nhưng nặng hơn
-  */
-  modelComplexity:0,
-
-  minDetectionConfidence:0.62,
-  minTrackingConfidence:0.60
- });
-
- handsDetector.onResults(processHands);
-}
-
-createDetector();
-
-/* =========================================================
-   8. CAMERA
-   ========================================================= */
+/* ==========================================================
+   CAMERA START
+   ========================================================== */
+let stream=null;
+let mediaCamera=null;
 
 async function startCamera(){
-
- if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-
-  status("❌ Trình duyệt không hỗ trợ camera");
-  return;
- }
-
  try{
+  if(!navigator.mediaDevices?.getUserMedia){
+   setStatus("❌ Camera cần HTTPS — hãy mở bằng GitHub Pages");
+   return;
+  }
 
-  startButton.textContent="⏳ ĐANG MỞ CAMERA...";
-  startButton.disabled=true;
+  if(!aiReady){
+   await loadAI();
+   if(!aiReady)return;
+  }
 
-  status("Đang xin quyền Camera...");
+  start.disabled=true;
+  start.textContent="⏳ ĐANG MỞ CAMERA...";
+  setStatus("Đang xin quyền Camera...");
 
-  cameraStream=await navigator.mediaDevices.getUserMedia({
+  stream=await navigator.mediaDevices.getUserMedia({
    audio:false,
    video:{
     width:{ideal:640},
@@ -606,111 +311,58 @@ async function startCamera(){
    }
   });
 
-  video.srcObject=cameraStream;
-
-  await new Promise(resolve=>{
-   video.onloadedmetadata=()=>{
-    video.play();
-    resolve();
-   };
-  });
-
+  video.srcObject=stream;
+  await video.play();
   resizeCanvas();
 
-  /*
-   MediaPipe CameraUtils gọi AI khoảng 30 FPS.
-   Không chạy vô hạn theo requestAnimationFrame.
-   Đây là phần quan trọng để giảm lag.
-  */
-  mediapipeCamera=new Camera(video,{
-   onFrame:async()=>{
-    if(video.readyState>=2){
-     await handsDetector.send({image:video});
-    }
-   },
+  mediaCamera=new Camera(video,{
    width:640,
-   height:480
+   height:480,
+   onFrame:async()=>{
+    if(!aiBusy && video.readyState>=2){
+     aiBusy=true;
+     try{await detector.send({image:video})}
+     catch(e){console.error(e)}
+     aiBusy=false;
+    }
+   }
   });
+  mediaCamera.start();
 
-  mediapipeCamera.start();
-
-  startButton.style.display="none";
-
-  loading.style.display="none";
-
-  status("☝️ Đưa tay vào camera");
-  modeBox.textContent="CHẾ ĐỘ: ĐANG NHẬN DIỆN";
-
- }catch(error){
-
-  console.error(error);
-
-  startButton.disabled=false;
-  startButton.textContent="📷 THỬ LẠI CAMERA";
-
-  loading.style.display="none";
-
-  if(error.name==="NotAllowedError"){
-   status("❌ Bạn chưa cho phép Camera");
-  }else if(error.name==="NotFoundError"){
-   status("❌ Không tìm thấy Camera");
-  }else{
-   status("❌ Camera lỗi: "+error.name);
-  }
+  start.style.display="none";
+  modeBox.textContent="ĐANG NHẬN DIỆN";
+  setStatus("☝️ Đưa bàn tay vào khung camera");
+ }catch(e){
+  console.error(e);
+  start.disabled=false;
+  start.textContent="📷 THỬ LẠI CAMERA";
+  if(e.name==="NotAllowedError")setStatus("❌ Bạn chưa cho phép Camera");
+  else if(e.name==="NotFoundError")setStatus("❌ Không tìm thấy Camera");
+  else setStatus("❌ Camera lỗi: "+e.name);
  }
 }
+start.onclick=startCamera;
 
-startButton.addEventListener("click",startCamera);
-
-/* =========================================================
-   9. DỪNG AI KHI TAB ẨN
-   ========================================================= */
-
-document.addEventListener("visibilitychange",()=>{
-
- if(document.hidden){
-
-  controls.autoRotate=false;
-
- }else{
-
-  controls.update();
-
+/* FPS của trình duyệt, không phải FPS AI */
+let frames=0,ft=performance.now();
+function loop(){
+ frames++;
+ const n=performance.now();
+ if(n-ft>=1000){
+  fpsText.textContent=frames+" FPS";
+  frames=0;ft=n;
  }
-});
+ requestAnimationFrame(loop);
+}
+loop();
 
-/* =========================================================
-   10. FALLBACK CHUỘT
-   ========================================================= */
-
-earthElement.addEventListener("pointerdown",()=>{
- if(!handControl){
-  controls.autoRotate=false;
- }
-});
-
-/* =========================================================
-   11. CHỈNH CAMERA BAN ĐẦU
-   ========================================================= */
-
-globe.pointOfView({
- lat:20,
- lng:105,
- altitude:2.2
-},0);
-
-/*
- Để màn hình không bị đen trước khi texture tải xong.
-*/
-setTimeout(()=>{
- loading.style.display="none";
-},5000);
+/* Bắt đầu tải AI sau khi giao diện đã xuất hiện */
+setTimeout(loadAI,300);
 </script>
 </body>
-</html>
-'''
+</html>'''
 
-path = Path("/mnt/data/earth_hand_tracking_PRO.html")
+path = Path("/mnt/data/index_earth_hand_pro.html")
 path.write_text(html, encoding="utf-8")
-print(f"Đã tạo file {path} — {len(html):,} ký tự")
+print(f"Đã tạo {path} | {len(html):,} ký tự")
 
