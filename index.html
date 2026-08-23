@@ -4,209 +4,224 @@ html = r'''<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Earth Game 3D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Earth Hand Control 3D</title>
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02050b;font-family:Arial,sans-serif;color:#fff}
-#globe{width:100vw;height:100vh}
-#ui{position:fixed;inset:0;pointer-events:none}
-.top{
-  position:absolute;top:18px;left:50%;transform:translateX(-50%);
-  text-align:center;text-shadow:0 3px 15px #000
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:Arial,sans-serif;color:#fff}
+#earth{position:fixed;inset:0}
+#cameraBox{
+ position:fixed;right:16px;bottom:16px;width:230px;height:170px;z-index:10;
+ border:1px solid #39eaff;border-radius:12px;overflow:hidden;background:#02080d;
+ box-shadow:0 0 25px #007bff55
 }
-.top h1{margin:0;font-size:clamp(22px,4vw,42px);letter-spacing:2px}
-.top p{margin:6px 0;color:#a9c9e8;font-size:14px}
-.panel{
-  pointer-events:auto;position:absolute;left:18px;top:18px;width:285px;
-  padding:18px;border:1px solid #29415e;border-radius:18px;
-  background:rgba(3,10,20,.82);backdrop-filter:blur(12px);
-  box-shadow:0 15px 45px rgba(0,0,0,.45)
+#video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#handCanvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+.camTitle{position:absolute;top:7px;left:9px;z-index:2;font-size:11px;color:#8ff5ff;text-shadow:0 1px 5px #000}
+#status{position:fixed;left:16px;bottom:16px;z-index:10;padding:10px 13px;border:1px solid #25475c;border-radius:10px;background:#02090fe8;font-size:12px}
+#start{
+ position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:20;
+ border:1px solid #42eaff;background:#06232d;color:#a4f7ff;padding:11px 18px;border-radius:9px;
+ font-weight:700;cursor:pointer
 }
-.panel h2{margin:0 0 12px;font-size:18px}
-.stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1d2d41;font-size:14px}
-.stat:last-child{border:0}
-.value{color:#70d7ff;font-weight:bold}
-button{
-  width:100%;margin-top:12px;padding:11px;border:0;border-radius:12px;
-  color:#fff;background:#1677ff;font-weight:bold;cursor:pointer
+#tip{
+ position:fixed;left:50%;bottom:195px;transform:translateX(-50%);z-index:8;
+ padding:8px 13px;background:#02090dcc;border:1px solid #25475c;border-radius:8px;
+ font-size:12px;color:#b8d3df;text-align:center
 }
-button:hover{filter:brightness(1.15)}
-#info{
-  display:none;position:absolute;right:18px;top:18px;width:270px;
-  padding:18px;border-radius:18px;background:rgba(3,10,20,.86);
-  border:1px solid #29415e;backdrop-filter:blur(12px);
-  box-shadow:0 15px 45px rgba(0,0,0,.45)
-}
-#info h2{margin:0 0 8px}
-#info p{margin:7px 0;color:#b7c7d8;font-size:14px}
-#close{background:#243449}
-#quiz{
-  pointer-events:auto;position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
-  min-width:min(430px,calc(100vw - 36px));padding:14px 16px;
-  background:rgba(3,10,20,.88);border:1px solid #29415e;border-radius:18px;
-  text-align:center;backdrop-filter:blur(12px)
-}
-#question{font-weight:bold;margin-bottom:9px}
-#answer{width:100%;padding:11px;border-radius:10px;border:1px solid #40546b;background:#0c1623;color:#fff}
-.small{font-size:12px;color:#8fa6bd;margin-top:7px}
-@media(max-width:700px){
- .panel{width:220px;padding:12px;top:10px;left:10px}
- #info{right:10px;top:10px;width:220px;padding:12px}
- .panel .stat:nth-of-type(n+3){display:none}
- .top{top:10px}
- .top h1{font-size:22px}
+@media(max-width:600px){
+ #cameraBox{width:150px;height:112px;right:8px;bottom:8px}
+ #status{left:8px;bottom:8px;font-size:10px}
+ #tip{bottom:130px;width:90%;font-size:10px}
 }
 </style>
 </head>
 <body>
-<div id="globe"></div>
+<div id="earth"></div>
 
-<div id="ui">
-  <div class="top">
-    <h1>🌍 EARTH GAME</h1>
-    <p>Kéo để xoay • Cuộn để zoom • Click vào quốc gia</p>
-  </div>
+<button id="start">📷 BẬT CAMERA + ĐIỀU KHIỂN BẰNG TAY</button>
 
-  <div class="panel">
-    <h2>🌐 Trái Đất 3D</h2>
-    <div class="stat"><span>Chế độ</span><span class="value" id="mode">Khám phá</span></div>
-    <div class="stat"><span>Quốc gia đã chọn</span><span class="value" id="selected">0</span></div>
-    <div class="stat"><span>Điểm</span><span class="value" id="score">0</span></div>
-    <button id="quizBtn">🎯 Bắt đầu đoán quốc gia</button>
-  </div>
-
-  <div id="info">
-    <h2 id="countryName">Quốc gia</h2>
-    <p id="countryCode">Mã: —</p>
-    <p id="countryArea">Diện tích: —</p>
-    <button id="close">Đóng</button>
-  </div>
-
-  <div id="quiz">
-    <div id="question">Nhấn “Bắt đầu đoán quốc gia” để chơi.</div>
-    <input id="answer" placeholder="Nhập tên quốc gia..." autocomplete="off" style="display:none">
-    <button id="submit" style="display:none">Trả lời</button>
-    <div class="small">Bạn có thể kéo quả địa cầu để tìm quốc gia.</div>
-  </div>
+<div id="cameraBox">
+ <div class="camTitle">HAND TRACKING</div>
+ <video id="video" autoplay playsinline muted></video>
+ <canvas id="handCanvas"></canvas>
 </div>
+
+<div id="tip">
+ ☝️ Di chuyển ngón trỏ = xoay Trái Đất &nbsp; • &nbsp;
+ 🤏 Chụm 2 ngón = zoom &nbsp; • &nbsp; ✋ Mở bàn tay = dừng
+</div>
+<div id="status">Camera chưa bật</div>
 
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 <script src="https://unpkg.com/globe.gl"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
 <script>
-const globe = Globe()(document.getElementById('globe'))
-  .backgroundColor('#02050b')
-  .showAtmosphere(true)
-  .atmosphereColor('#38a9ff')
-  .atmosphereAltitude(0.18)
-  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-  .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-  .polygonAltitude(0.006)
-  .polygonCapColor(d => d.__selected ? 'rgba(255,190,40,.78)' : 'rgba(30,150,255,.25)')
-  .polygonSideColor(() => 'rgba(20,80,130,.35)')
-  .polygonStrokeColor(() => 'rgba(160,220,255,.55)')
-  .polygonLabel(d => `<b>${d.properties.ADMIN || d.properties.name || 'Quốc gia'}</b>`)
-  .onPolygonClick(selectCountry)
-  .onPolygonHover(d => document.body.style.cursor = d ? 'pointer' : 'default');
+const earthEl=document.getElementById('earth');
+const video=document.getElementById('video');
+const canvas=document.getElementById('handCanvas');
+const ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status');
 
-globe.controls().enableDamping = true;
-globe.controls().dampingFactor = 0.08;
-globe.controls().autoRotate = true;
-globe.controls().autoRotateSpeed = 0.35;
+const globe=Globe()(earthEl)
+ .backgroundColor('#000')
+ .showAtmosphere(true)
+ .atmosphereColor('#29bfff')
+ .atmosphereAltitude(.16)
+ .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+ .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png');
 
-let countries = [];
-let selectedCount = 0;
-let score = 0;
-let quizMode = false;
-let target = null;
+const controls=globe.controls();
+controls.enableDamping=true;
+controls.dampingFactor=.06;
+controls.rotateSpeed=.5;
+controls.zoomSpeed=.6;
+controls.minDistance=160;
+controls.maxDistance=430;
+controls.autoRotate=false;
 
-fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
-  .then(r => r.json())
-  .then(data => {
-    countries = data.features || [];
-    globe.polygonsData(countries);
-    document.getElementById('selected').textContent = '0';
-  })
-  .catch(err => {
-    document.getElementById('question').textContent =
-      'Không tải được dữ liệu quốc gia. Hãy mở bằng mạng Internet.';
-  });
+let handReady=false;
+let lastX=null,lastY=null;
+let lastPinch=null;
+let smoothX=0,smoothY=0,smoothZoom=0;
+let noHandFrames=0;
 
-function selectCountry(d){
-  if(!d) return;
+function setStatus(t){statusEl.textContent=t}
 
-  countries.forEach(c => c.__selected = false);
-  d.__selected = true;
-  globe.polygonsData([...countries]);
+function resizeCanvas(){
+ const r=video.getBoundingClientRect();
+ canvas.width=Math.max(1,Math.floor(r.width*2));
+ canvas.height=Math.max(1,Math.floor(r.height*2));
+}
+window.addEventListener('resize',resizeCanvas);
 
-  const name = d.properties.ADMIN || d.properties.name || 'Không rõ';
-  const code = d.properties.ISO_A3 || d.properties.iso_a3 || '—';
-
-  selectedCount++;
-  document.getElementById('selected').textContent = selectedCount;
-  document.getElementById('countryName').textContent = '🌍 ' + name;
-  document.getElementById('countryCode').textContent = 'Mã quốc gia: ' + code;
-  document.getElementById('countryArea').textContent =
-    'Diện tích: ' + ((d.properties.AREA || 0) ? Number(d.properties.AREA).toLocaleString('vi-VN') + ' km²' : 'Đang cập nhật');
-  document.getElementById('info').style.display = 'block';
-
-  if(quizMode && target){
-    if(normalize(name) === normalize(target.name)){
-      score += 100;
-      document.getElementById('score').textContent = score;
-      document.getElementById('question').textContent = '🎉 Chính xác! +100 điểm';
-      setTimeout(newQuestion, 900);
-    } else {
-      document.getElementById('question').textContent = '❌ Chưa đúng! Hãy tìm tiếp.';
-    }
-  }
+function distance(a,b){
+ return Math.hypot(a.x-b.x,a.y-b.y);
 }
 
-function normalize(s){
-  return String(s).toLowerCase()
-    .normalize('NFD').replace(/[\\u0300-\\u036f]/g,'')
-    .replace(/[^a-z0-9]/g,'');
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+
+function handIsOpen(lm){
+ // Đầu ngón tay nằm cao hơn các khớp tương ứng => bàn tay mở
+ return (
+   lm[8].y<lm[6].y &&
+   lm[12].y<lm[10].y &&
+   lm[16].y<lm[14].y &&
+   lm[20].y<lm[18].y
+ );
 }
 
-function newQuestion(){
-  if(!countries.length) return;
-  target = countries[Math.floor(Math.random()*countries.length)];
-  const name = target.properties.ADMIN || target.properties.name;
-  document.getElementById('question').textContent =
-    '🎯 Hãy tìm quốc gia: ' + name;
+function onResults(results){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ if(!results.multiHandLandmarks || !results.multiHandLandmarks.length){
+   noHandFrames++;
+   if(noHandFrames>8){
+     handReady=false;
+     lastX=lastY=null;
+     lastPinch=null;
+     setStatus('🖐️ Đưa bàn tay vào khung camera');
+   }
+   return;
+ }
+ noHandFrames=0;
+ handReady=true;
+
+ const lm=results.multiHandLandmarks[0];
+
+ drawConnectors(ctx,lm,HAND_CONNECTIONS,{color:'#48eaff',lineWidth:3});
+ drawLandmarks(ctx,lm,{color:'#ffffff',lineWidth:1,radius:3});
+
+ const index=lm[8];
+ const pinch=distance(lm[4],lm[8]);
+ const open=handIsOpen(lm);
+
+ // Pinch: khoảng cách ngón cái - trỏ điều khiển zoom
+ if(lastPinch!==null){
+   const delta=pinch-lastPinch;
+   if(Math.abs(delta)>.008){
+     const z=controls.getDistance();
+     controls.dollyIn(1 + clamp(delta*4,-.18,.18));
+     controls.update();
+   }
+ }
+ lastPinch=pinch;
+
+ // Khi mở bàn tay, không xoay để người dùng "giữ" trạng thái
+ if(open){
+   setStatus('✋ Bàn tay mở — ĐANG GIỮ');
+   lastX=index.x; lastY=index.y;
+   return;
+ }
+
+ // Ngón trỏ điều khiển xoay
+ if(lastX!==null){
+   const dx=index.x-lastX;
+   const dy=index.y-lastY;
+
+   // smoothing để tránh rung
+   smoothX=smoothX*.65+dx*.35;
+   smoothY=smoothY*.65+dy*.35;
+
+   if(Math.abs(smoothX)>.002 || Math.abs(smoothY)>.002){
+     controls.rotateLeft(smoothX*5.0);
+     controls.rotateUp(smoothY*3.2);
+     controls.update();
+     setStatus('☝️ Đang điều khiển Trái Đất');
+   }
+ }
+ lastX=index.x;
+ lastY=index.y;
 }
 
-document.getElementById('quizBtn').onclick = () => {
-  quizMode = !quizMode;
-  document.getElementById('mode').textContent = quizMode ? 'Đoán quốc gia' : 'Khám phá';
-  document.getElementById('quizBtn').textContent =
-    quizMode ? '🛑 Dừng chế độ đoán' : '🎯 Bắt đầu đoán quốc gia';
-  if(quizMode) newQuestion();
-  else {
-    target = null;
-    document.getElementById('question').textContent = 'Đã quay lại chế độ khám phá.';
-  }
+const hands=new Hands({
+ locateFile:file=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+hands.setOptions({
+ maxNumHands:1,
+ modelComplexity:0,          // nhẹ hơn, phù hợp máy yếu
+ minDetectionConfidence:.62,
+ minTrackingConfidence:.58
+});
+hands.onResults(onResults);
+
+let cam=null;
+document.getElementById('start').onclick=async()=>{
+ try{
+   setStatus('⏳ Đang xin quyền camera...');
+   const stream=await navigator.mediaDevices.getUserMedia({
+     video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},
+     audio:false
+   });
+   video.srcObject=stream;
+   await video.play();
+   resizeCanvas();
+
+   if(cam) cam.stop();
+   cam=new Camera(video,{
+     onFrame:async()=>{await hands.send({image:video})},
+     width:640,
+     height:480
+   });
+   cam.start();
+
+   document.getElementById('start').style.display='none';
+   setStatus('☝️ Đưa tay vào camera');
+ }catch(e){
+   console.error(e);
+   setStatus('❌ Không mở được camera — hãy cho phép Camera và dùng HTTPS/GitHub Pages');
+ }
 };
 
-document.getElementById('close').onclick = () =>
-  document.getElementById('info').style.display = 'none';
-
-document.getElementById('submit').onclick = () => {
-  const val = document.getElementById('answer').value.trim();
-  if(target && normalize(val) === normalize(target.properties.ADMIN || target.properties.name)){
-    score += 100;
-    document.getElementById('score').textContent = score;
-    document.getElementById('question').textContent = '🎉 Chính xác! +100 điểm';
-    document.getElementById('answer').value = '';
-    setTimeout(newQuestion, 900);
-  } else {
-    document.getElementById('question').textContent = '❌ Sai rồi, thử lại nhé!';
-  }
-};
+// Cho phép dùng chuột như phương án dự phòng
+earthEl.addEventListener('pointerdown',()=>controls.autoRotate=false);
 </script>
 </body>
 </html>'''
 
-path = Path("/mnt/data/earth_game_3d.html")
-path.write_text(html, encoding="utf-8")
-print(f"Đã tạo: {path}")
+path=Path("/mnt/data/earth_hand_control.html")
+path.write_text(html,encoding="utf-8")
+print(path)
+
