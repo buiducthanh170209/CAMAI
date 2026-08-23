@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Neon Catch - Game dùng Webcam</title>
+  <title>Cyber Blaster - 2 Tay</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #050510;
+      background: #03010a;
       color: white;
       font-family: 'Segoe UI', system-ui, sans-serif;
       overflow: hidden;
@@ -15,15 +15,12 @@
     }
     #gameCanvas {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
     }
     #ui {
       position: absolute;
-      top: 20px;
-      left: 0;
+      top: 18px;
       width: 100%;
       display: flex;
       justify-content: space-between;
@@ -31,43 +28,43 @@
       z-index: 10;
       pointer-events: none;
     }
-    .score-box {
-      background: rgba(0, 0, 0, 0.6);
+    .box {
+      background: rgba(0,0,0,0.65);
       border: 1px solid #00f0ff55;
-      padding: 12px 24px;
-      border-radius: 16px;
-      font-size: 22px;
+      padding: 10px 22px;
+      border-radius: 14px;
+      font-size: 20px;
       color: #00f0ff;
       backdrop-filter: blur(8px);
     }
     #status {
       position: absolute;
-      bottom: 25px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.7);
+      background: rgba(0,0,0,0.75);
       padding: 10px 24px;
       border-radius: 30px;
-      font-size: 16px;
+      font-size: 15px;
       color: #00f0ff;
       z-index: 10;
     }
     #webcam {
       position: absolute;
-      bottom: 20px;
-      right: 20px;
-      width: 200px;
-      height: 150px;
+      bottom: 18px;
+      right: 18px;
+      width: 190px;
+      height: 142px;
       border: 2px solid #00f0ff;
       border-radius: 12px;
       transform: scaleX(-1);
       z-index: 20;
-      opacity: 0.85;
+      opacity: 0.9;
     }
     #startScreen {
       position: absolute;
       inset: 0;
-      background: rgba(5, 5, 16, 0.92);
+      background: rgba(3,1,10,0.94);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -75,21 +72,24 @@
       z-index: 50;
     }
     #startScreen h1 {
-      font-size: 56px;
+      font-size: 52px;
       background: linear-gradient(90deg, #00f0ff, #ff00aa);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
     }
     #startScreen p {
-      font-size: 20px;
+      font-size: 18px;
       color: #aaa;
-      margin-bottom: 40px;
+      margin-bottom: 12px;
+      text-align: center;
+      line-height: 1.6;
     }
     button {
-      padding: 16px 48px;
+      margin-top: 25px;
+      padding: 15px 50px;
       font-size: 20px;
-      background: linear-gradient(90deg, #00f0ff, #00aaff);
+      background: linear-gradient(90deg, #00f0ff, #0088ff);
       border: none;
       border-radius: 50px;
       color: #000;
@@ -98,7 +98,7 @@
       transition: 0.2s;
     }
     button:hover {
-      transform: scale(1.08);
+      transform: scale(1.07);
       box-shadow: 0 0 30px #00f0ff88;
     }
   </style>
@@ -108,14 +108,18 @@
   <video id="webcam" autoplay playsinline muted></video>
 
   <div id="ui">
-    <div class="score-box">Điểm: <span id="score">0</span></div>
-    <div class="score-box">Máu: <span id="lives">5</span></div>
+    <div class="box">Điểm: <span id="score">0</span></div>
+    <div class="box">Máu: <span id="lives">5</span></div>
   </div>
-  <div id="status">Đưa tay vào khung hình để chơi</div>
+  <div id="status">Tay trái: Di chuyển • Tay phải: Bắn</div>
 
   <div id="startScreen">
-    <h1>NEON CATCH</h1>
-    <p>Bắt quả cầu bằng tay • Tránh quả bom</p>
+    <h1>CYBER BLASTER</h1>
+    <p>
+      <b>Tay trái</b>: Di chuyển phi thuyền<br>
+      <b>Tay phải</b>: Chụm ngón để bắn<br>
+      Tiêu diệt địch • Tránh đạn
+    </p>
     <button onclick="startGame()">BẮT ĐẦU</button>
   </div>
 
@@ -130,54 +134,79 @@
     const statusEl = document.getElementById('status');
     const startScreen = document.getElementById('startScreen');
 
-    let width, height;
+    let W, H;
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
     }
     window.addEventListener('resize', resize);
     resize();
 
-    // Game state
+    // Game variables
     let score = 0;
     let lives = 5;
     let gameRunning = false;
-    let objects = [];
+    let player = { x: W/2, y: H - 120, w: 50, h: 50 };
+    let bullets = [];
+    let enemies = [];
+    let enemyBullets = [];
     let particles = [];
-    let handX = width / 2;
-    let handY = height / 2;
-    let handOpen = false;
-    let lastSpawn = 0;
+    let lastShot = 0;
+    let lastEnemySpawn = 0;
 
-    // Hand tracking
+    // Hand data
+    let leftHand = null;
+    let rightHand = null;
+    let rightPinching = false;
+    let lastRightPinch = false;
+
+    // MediaPipe
     const video = document.getElementById('webcam');
     const hands = new Hands({
-      locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
     });
     hands.setOptions({
-      maxNumHands: 1,
+      maxNumHands: 2,
       modelComplexity: 1,
       minDetectionConfidence: 0.7,
       minTrackingConfidence: 0.7
     });
 
     hands.onResults(results => {
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const lm = results.multiHandLandmarks[0];
-        // Dùng điểm giữa lòng bàn tay (landmark 9)
-        handX = (1 - lm[9].x) * width;
-        handY = lm[9].y * height;
+      leftHand = null;
+      rightHand = null;
+      rightPinching = false;
 
-        // Kiểm tra bàn tay mở hay khép
-        const thumb = lm[4];
-        const index = lm[8];
-        const dist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
-        handOpen = dist > 0.1;
-
-        statusEl.textContent = handOpen ? "Bàn tay mở - Sẵn sàng bắt!" : "Chụm tay lại để chuẩn bị";
-      } else {
-        statusEl.textContent = "Không thấy tay - Đưa tay vào khung hình";
+      if (!results.multiHandLandmarks) {
+        statusEl.textContent = "Không thấy tay - Đưa cả 2 tay vào khung";
+        return;
       }
+
+      for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+        const lm = results.multiHandLandmarks[i];
+        const label = results.multiHandedness[i].label;
+        const isLeft = label === "Left";
+
+        const index = lm[8];
+        const thumb = lm[4];
+        const wrist = lm[0];
+
+        const x = (1 - index.x) * W;
+        const y = index.y * H;
+        const dist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+        const pinching = dist < 0.05;
+
+        if (isLeft) {
+          leftHand = { x, y };
+        } else {
+          rightHand = { x, y };
+          rightPinching = pinching;
+        }
+      }
+
+      if (leftHand && rightHand) statusEl.textContent = "Cả 2 tay đang hoạt động";
+      else if (leftHand) statusEl.textContent = "Tay trái: Di chuyển";
+      else if (rightHand) statusEl.textContent = "Tay phải: Bắn";
     });
 
     const camera = new Camera(video, {
@@ -187,49 +216,14 @@
     });
     camera.start();
 
-    // Objects
-    class FallingObject {
-      constructor() {
-        this.x = Math.random() * (width - 80) + 40;
-        this.y = -50;
-        this.radius = 28 + Math.random() * 18;
-        this.speed = 3 + Math.random() * 3 + score * 0.02;
-        this.isBomb = Math.random() < 0.18; // 18% là bom
-        this.color = this.isBomb ? '#ff2244' : `hsl(${Math.random()*360}, 100%, 60%)`;
-        this.caught = false;
-      }
-      update() {
-        this.y += this.speed;
-      }
-      draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 25;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        if (this.isBomb) {
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 20px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText('💣', this.x, this.y + 7);
-        }
-      }
-    }
-
-    function spawnObject() {
-      objects.push(new FallingObject());
-    }
-
-    function createParticles(x, y, color) {
-      for (let i = 0; i < 12; i++) {
+    // Classes
+    function createParticles(x, y, color, count = 12) {
+      for (let i = 0; i < count; i++) {
         particles.push({
           x, y,
-          vx: (Math.random() - 0.5) * 12,
-          vy: (Math.random() - 0.5) * 12,
-          life: 30,
+          vx: (Math.random()-0.5)*10,
+          vy: (Math.random()-0.5)*10,
+          life: 25 + Math.random()*15,
           color
         });
       }
@@ -239,8 +233,12 @@
       startScreen.style.display = 'none';
       score = 0;
       lives = 5;
-      objects = [];
+      bullets = [];
+      enemies = [];
+      enemyBullets = [];
       particles = [];
+      player.x = W/2;
+      player.y = H - 120;
       gameRunning = true;
       scoreEl.textContent = score;
       livesEl.textContent = lives;
@@ -250,80 +248,196 @@
       gameRunning = false;
       startScreen.style.display = 'flex';
       startScreen.querySelector('h1').textContent = 'GAME OVER';
-      startScreen.querySelector('p').textContent = `Điểm của bạn: ${score}`;
+      startScreen.querySelector('p').innerHTML = `Điểm của bạn: <b>${score}</b><br>Thử lại nhé!`;
       startScreen.querySelector('button').textContent = 'CHƠI LẠI';
     }
 
     // Game loop
     function animate(time) {
-      ctx.fillStyle = 'rgba(5, 5, 16, 0.25)'; // motion trail
-      ctx.fillRect(0, 0, width, height);
+      // Background
+      ctx.fillStyle = 'rgba(3,1,10,0.35)';
+      ctx.fillRect(0, 0, W, H);
 
-      // Vẽ tay
-      ctx.beginPath();
-      ctx.arc(handX, handY, handOpen ? 55 : 35, 0, Math.PI * 2);
-      ctx.strokeStyle = handOpen ? '#00f0ff' : '#ff00aa';
-      ctx.lineWidth = 4;
-      ctx.shadowColor = handOpen ? '#00f0ff' : '#ff00aa';
-      ctx.shadowBlur = 20;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      // Stars background
+      ctx.fillStyle = '#ffffff15';
+      for (let i = 0; i < 60; i++) {
+        const sx = (i * 97) % W;
+        const sy = (i * 53 + time*0.05) % H;
+        ctx.fillRect(sx, sy, 2, 2);
+      }
 
       if (gameRunning) {
-        // Spawn
-        if (time - lastSpawn > Math.max(600, 1200 - score * 8)) {
-          spawnObject();
-          lastSpawn = time;
+        // Player movement - Tay trái
+        if (leftHand) {
+          player.x += (leftHand.x - player.x) * 0.15;
+          player.y += (leftHand.y - player.y) * 0.12;
+        }
+        player.x = Math.max(40, Math.min(W-40, player.x));
+        player.y = Math.max(80, Math.min(H-80, player.y));
+
+        // Shoot - Tay phải
+        if (rightPinching && !lastRightPinch && time - lastShot > 180) {
+          bullets.push({
+            x: player.x,
+            y: player.y - 30,
+            speed: 14
+          });
+          lastShot = time;
+        }
+        lastRightPinch = rightPinching;
+
+        // Update bullets
+        for (let i = bullets.length-1; i >= 0; i--) {
+          bullets[i].y -= bullets[i].speed;
+          if (bullets[i].y < -20) bullets.splice(i, 1);
         }
 
-        // Update objects
-        for (let i = objects.length - 1; i >= 0; i--) {
-          const obj = objects[i];
-          obj.update();
-          obj.draw();
+        // Spawn enemies
+        if (time - lastEnemySpawn > Math.max(700, 1400 - score*3)) {
+          enemies.push({
+            x: 60 + Math.random() * (W-120),
+            y: -40,
+            speed: 2 + Math.random()*1.5 + score*0.01,
+            hp: 1,
+            lastShot: 0
+          });
+          lastEnemySpawn = time;
+        }
 
-          // Kiểm tra bắt
-          const dist = Math.hypot(obj.x - handX, obj.y - handY);
-          if (dist < obj.radius + (handOpen ? 55 : 35)) {
-            if (obj.isBomb) {
-              lives--;
-              livesEl.textContent = lives;
-              createParticles(obj.x, obj.y, '#ff2244');
-              if (lives <= 0) gameOver();
-            } else {
-              score += 10;
+        // Update enemies
+        for (let i = enemies.length-1; i >= 0; i--) {
+          const e = enemies[i];
+          e.y += e.speed;
+
+          // Enemy shoot
+          if (time - e.lastShot > 1400 && Math.random() < 0.02) {
+            enemyBullets.push({
+              x: e.x,
+              y: e.y + 20,
+              speed: 5
+            });
+            e.lastShot = time;
+          }
+
+          // Collision with player bullets
+          for (let j = bullets.length-1; j >= 0; j--) {
+            const b = bullets[j];
+            if (Math.hypot(b.x - e.x, b.y - e.y) < 35) {
+              createParticles(e.x, e.y, '#ff00aa');
+              enemies.splice(i, 1);
+              bullets.splice(j, 1);
+              score += 20;
               scoreEl.textContent = score;
-              createParticles(obj.x, obj.y, obj.color);
+              break;
             }
-            objects.splice(i, 1);
+          }
+
+          // Enemy hit player
+          if (Math.hypot(e.x - player.x, e.y - player.y) < 45) {
+            createParticles(player.x, player.y, '#ff2244');
+            enemies.splice(i, 1);
+            lives--;
+            livesEl.textContent = lives;
+            if (lives <= 0) gameOver();
+          }
+
+          if (e.y > H + 50) enemies.splice(i, 1);
+        }
+
+        // Enemy bullets
+        for (let i = enemyBullets.length-1; i >= 0; i--) {
+          const b = enemyBullets[i];
+          b.y += b.speed;
+          if (Math.hypot(b.x - player.x, b.y - player.y) < 30) {
+            createParticles(player.x, player.y, '#ff2244');
+            enemyBullets.splice(i, 1);
+            lives--;
+            livesEl.textContent = lives;
+            if (lives <= 0) gameOver();
             continue;
           }
-
-          // Rơi hết màn hình
-          if (obj.y > height + 50) {
-            if (!obj.isBomb) {
-              lives--;
-              livesEl.textContent = lives;
-              if (lives <= 0) gameOver();
-            }
-            objects.splice(i, 1);
-          }
+          if (b.y > H + 20) enemyBullets.splice(i, 1);
         }
+      }
 
-        // Particles
-        for (let i = particles.length - 1; i >= 0; i--) {
-          const p = particles[i];
-          p.x += p.vx;
-          p.y += p.vy;
-          p.life--;
-          ctx.globalAlpha = p.life / 30;
-          ctx.fillStyle = p.color;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-          if (p.life <= 0) particles.splice(i, 1);
-        }
+      // Draw player
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.fillStyle = '#00f0ff';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.moveTo(0, -28);
+      ctx.lineTo(22, 22);
+      ctx.lineTo(0, 10);
+      ctx.lineTo(-22, 22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // Draw bullets
+      ctx.fillStyle = '#00f0ff';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 12;
+      bullets.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+
+      // Draw enemies
+      enemies.forEach(e => {
+        ctx.fillStyle = '#ff00aa';
+        ctx.shadowColor = '#ff00aa';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y + 22);
+        ctx.lineTo(e.x + 20, e.y - 18);
+        ctx.lineTo(e.x - 20, e.y - 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      // Enemy bullets
+      ctx.fillStyle = '#ff3355';
+      enemyBullets.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
+        ctx.fill();
+      });
+
+      // Particles
+      for (let i = particles.length-1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        ctx.globalAlpha = p.life / 40;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      // Hand indicators
+      if (leftHand) {
+        ctx.beginPath();
+        ctx.arc(leftHand.x, leftHand.y, 18, 0, Math.PI*2);
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+      if (rightHand) {
+        ctx.beginPath();
+        ctx.arc(rightHand.x, rightHand.y, 18, 0, Math.PI*2);
+        ctx.strokeStyle = rightPinching ? '#ffff00' : '#ff00aa';
+        ctx.lineWidth = 3;
+        ctx.stroke();
       }
 
       requestAnimationFrame(animate);
