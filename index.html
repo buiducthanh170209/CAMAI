@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holographic Lab - VIP Pro (2 Tay)</title>
+  <title>Holographic Lab VIP Pro Max - 2 Tay + Khung Tay</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -12,10 +12,7 @@
       font-family: 'Segoe UI', system-ui, sans-serif;
       color: #fff;
     }
-    #canvas-container {
-      width: 100vw;
-      height: 100vh;
-    }
+    #canvas-container { width: 100vw; height: 100vh; }
     #webcam {
       position: fixed;
       bottom: 20px;
@@ -26,211 +23,212 @@
       border-radius: 14px;
       transform: scaleX(-1);
       z-index: 100;
-      background: #0a0a12;
+      background: #050510;
       object-fit: cover;
+      box-shadow: 0 0 25px #00f0ff55;
     }
     #status {
       position: fixed;
       top: 18px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0, 10, 20, 0.85);
-      border: 1px solid #00f0ff55;
-      padding: 10px 24px;
-      border-radius: 30px;
+      background: rgba(0, 12, 25, 0.9);
+      border: 1px solid #00f0ff66;
+      padding: 11px 28px;
+      border-radius: 40px;
       font-size: 15px;
       color: #00f0ff;
       z-index: 100;
       text-align: center;
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 20px #00f0ff33;
     }
     .hint {
       position: fixed;
       bottom: 20px;
       left: 20px;
-      background: rgba(0, 8, 18, 0.88);
+      background: rgba(0, 10, 22, 0.92);
       border: 1px solid #00f0ff44;
       padding: 16px 20px;
       border-radius: 16px;
       font-size: 13.5px;
-      line-height: 1.65;
-      color: #7af0ff;
+      line-height: 1.7;
+      color: #8af4ff;
       z-index: 100;
-      max-width: 300px;
-      backdrop-filter: blur(10px);
+      max-width: 310px;
+      backdrop-filter: blur(12px);
     }
     .hint b { color: #00f0ff; }
-    .hand-label {
-      position: absolute;
-      font-size: 12px;
-      padding: 3px 8px;
-      border-radius: 6px;
-      pointer-events: none;
-      z-index: 50;
-    }
   </style>
 </head>
 <body>
   <div id="canvas-container"></div>
   <video id="webcam" autoplay playsinline muted></video>
-  <div id="status">Đang khởi động Hệ thống Lab VIP Pro...</div>
+  <div id="status">Đang khởi động Hệ thống Lab VIP Pro Max...</div>
 
   <div class="hint">
-    <b>PHÒNG THÍ NGHIỆM HOLOGRAPHIC - VIP PRO</b><br><br>
-    <b>Tay Trái:</b> Chụm ngón → Kéo & Di chuyển vật thể<br>
-    <b>Tay Phải:</b> Chụm ngón → Phóng to / Thu nhỏ<br>
-    <b>Cả 2 tay mở:</b> Kích hoạt Energy Field<br>
-    <b>Pinch mạnh tay phải:</b> Bắn năng lượng
+    <b>PHÒNG THÍ NGHIỆM HOLOGRAPHIC - VIP PRO MAX</b><br><br>
+    <b>Tay Trái (xanh):</b> Chụm ngón → Kéo & Di chuyển vật thể<br>
+    <b>Tay Phải (hồng):</b> Chụm ngón → Phóng to / Thu nhỏ<br>
+    <b>Cả 2 tay mở:</b> Kích hoạt Energy Field mạnh<br>
+    <b>Khung tay:</b> Hiển thị xương tay phát sáng realtime
   </div>
 
-  <!-- Three.js + MediaPipe -->
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
   <script>
-    // ====================== SCENE SETUP ======================
+    // ====================== SCENE ======================
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x02050a);
-    scene.fog = new THREE.FogExp2(0x02050a, 0.025);
+    scene.background = new THREE.Color(0x02040a);
+    scene.fog = new THREE.FogExp2(0x02040a, 0.022);
 
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.5, 7);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.8, 7.5);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
 
     // Lights
-    const ambient = new THREE.AmbientLight(0x112233, 0.6);
-    scene.add(ambient);
+    scene.add(new THREE.AmbientLight(0x0a1525, 0.7));
+    const light1 = new THREE.PointLight(0x00f0ff, 3.5, 25);
+    light1.position.set(4, 5, 3);
+    scene.add(light1);
+    const light2 = new THREE.PointLight(0xff0088, 2.2, 20);
+    light2.position.set(-4, 3, -2);
+    scene.add(light2);
+    const light3 = new THREE.PointLight(0x00ffaa, 1.5, 18);
+    light3.position.set(0, -1, 4);
+    scene.add(light3);
 
-    const point1 = new THREE.PointLight(0x00f0ff, 2.5, 20);
-    point1.position.set(3, 4, 2);
-    scene.add(point1);
-
-    const point2 = new THREE.PointLight(0xff00aa, 1.8, 18);
-    point2.position.set(-3, 2, -1);
-    scene.add(point2);
-
-    // Grid floor
-    const grid = new THREE.GridHelper(20, 40, 0x00f0ff, 0x003344);
-    grid.position.y = -1.5;
+    // Floor
+    const grid = new THREE.GridHelper(24, 48, 0x00f0ff, 0x003344);
+    grid.position.y = -1.8;
     scene.add(grid);
 
-    // ====================== HOLOGRAPHIC OBJECTS ======================
+    // ====================== HOLO OBJECTS ======================
     const objects = [];
-    const colors = [0x00f0ff, 0xff00aa, 0x00ff88, 0xffaa00, 0xaa00ff];
+    function createHolo(type, x, y, z, color) {
+      let geo;
+      if (type === 'sphere') geo = new THREE.SphereGeometry(0.48, 48, 48);
+      else if (type === 'box') geo = new THREE.BoxGeometry(0.75, 0.75, 0.75);
+      else geo = new THREE.OctahedronGeometry(0.55);
 
-    function createHoloObject(type, x, y, z, color) {
-      let geometry;
-      if (type === 'sphere') geometry = new THREE.SphereGeometry(0.45, 32, 32);
-      else if (type === 'box') geometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
-      else geometry = new THREE.OctahedronGeometry(0.5);
-
-      const material = new THREE.MeshPhysicalMaterial({
+      const mat = new THREE.MeshPhysicalMaterial({
         color: color,
         emissive: color,
-        emissiveIntensity: 0.4,
-        metalness: 0.3,
-        roughness: 0.15,
+        emissiveIntensity: 0.55,
+        metalness: 0.25,
+        roughness: 0.12,
         transparent: true,
-        opacity: 0.85,
-        transmission: 0.3
+        opacity: 0.88,
+        transmission: 0.35,
+        thickness: 0.6
       });
 
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(x, y, z);
-      mesh.userData = { originalScale: 1, velocity: new THREE.Vector3(), grabbed: false };
+      mesh.userData = { grabbed: false, baseScale: 1 };
       scene.add(mesh);
       objects.push(mesh);
 
-      // Glow sprite
-      const spriteMat = new THREE.SpriteMaterial({
-        map: createGlowTexture(color),
+      // Outer glow
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: color,
         transparent: true,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.5
+        opacity: 0.15,
+        side: THREE.BackSide
       });
-      const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(2.2, 2.2, 1);
-      mesh.add(sprite);
+      const glow = new THREE.Mesh(geo.clone().scale(1.35, 1.35, 1.35), glowMat);
+      mesh.add(glow);
 
       return mesh;
     }
 
-    function createGlowTexture(color) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 128; canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-      const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-      gradient.addColorStop(0, '#' + color.toString(16).padStart(6, '0'));
-      gradient.addColorStop(0.4, '#' + color.toString(16).padStart(6, '0') + '88');
-      gradient.addColorStop(1, 'transparent');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 128, 128);
-      return new THREE.CanvasTexture(canvas);
+    createHolo('sphere', -2.4, 0.9, 0.2, 0x00f0ff);
+    createHolo('box', 0.1, 1.4, -1.1, 0xff0088);
+    createHolo('octa', 2.5, 0.7, 0.6, 0x00ff99);
+    createHolo('sphere', -1.2, -0.4, 1.7, 0xffaa00);
+    createHolo('box', 1.7, -0.3, -1.6, 0xaa00ff);
+
+    // ====================== HAND SKELETON ======================
+    // MediaPipe Hand connections
+    const HAND_CONNECTIONS = [
+      [0,1],[1,2],[2,3],[3,4],          // thumb
+      [0,5],[5,6],[6,7],[7,8],          // index
+      [0,9],[9,10],[10,11],[11,12],     // middle
+      [0,13],[13,14],[14,15],[15,16],   // ring
+      [0,17],[17,18],[18,19],[19,20],   // pinky
+      [5,9],[9,13],[13,17]              // palm
+    ];
+
+    function createHandSkeleton(color) {
+      const group = new THREE.Group();
+      const joints = [];
+      const lines = [];
+
+      // 21 joints
+      for (let i = 0; i < 21; i++) {
+        const joint = new THREE.Mesh(
+          new THREE.SphereGeometry(0.045, 12, 12),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+        );
+        group.add(joint);
+        joints.push(joint);
+      }
+
+      // Connections
+      HAND_CONNECTIONS.forEach(([a, b]) => {
+        const geo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(), new THREE.Vector3()
+        ]);
+        const line = new THREE.Line(
+          geo,
+          new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.75, linewidth: 2 })
+        );
+        group.add(line);
+        lines.push({ line, a, b });
+      });
+
+      group.visible = false;
+      scene.add(group);
+      return { group, joints, lines };
     }
 
-    // Tạo các vật thể
-    createHoloObject('sphere', -2.2, 0.8, 0, 0x00f0ff);
-    createHoloObject('box', 0, 1.2, -1, 0xff00aa);
-    createHoloObject('octa', 2.3, 0.6, 0.5, 0x00ff88);
-    createHoloObject('sphere', -1, -0.3, 1.5, 0xffaa00);
-    createHoloObject('box', 1.5, -0.2, -1.5, 0xaa00ff);
-
-    // ====================== HAND CURSORS ======================
-    const leftCursor = createCursor(0x00f0ff);
-    const rightCursor = createCursor(0xff00aa);
-    scene.add(leftCursor);
-    scene.add(rightCursor);
-
-    function createCursor(color) {
-      const geo = new THREE.SphereGeometry(0.12, 16, 16);
-      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.visible = false;
-
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.18, 0.22, 32),
-        new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
-      );
-      ring.rotation.x = Math.PI / 2;
-      mesh.add(ring);
-      return mesh;
-    }
+    const leftSkeleton = createHandSkeleton(0x00f0ff);   // xanh
+    const rightSkeleton = createHandSkeleton(0xff0088);  // hồng
 
     // ====================== PARTICLES ======================
-    const particleCount = 400;
-    const particles = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount * 3; i++) {
-      positions[i] = (Math.random() - 0.5) * 18;
-    }
-    particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const particleMat = new THREE.PointsMaterial({
+    const pCount = 600;
+    const pGeo = new THREE.BufferGeometry();
+    const pPos = new Float32Array(pCount * 3);
+    for (let i = 0; i < pCount * 3; i++) pPos[i] = (Math.random() - 0.5) * 20;
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+    const pMat = new THREE.PointsMaterial({
       color: 0x00f0ff,
-      size: 0.04,
+      size: 0.035,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.45,
       blending: THREE.AdditiveBlending
     });
-    const particleSystem = new THREE.Points(particles, particleMat);
-    scene.add(particleSystem);
+    const particles = new THREE.Points(pGeo, pMat);
+    scene.add(particles);
 
     // ====================== HAND TRACKING ======================
     const video = document.getElementById('webcam');
     const statusEl = document.getElementById('status');
 
-    let leftHand = null, rightHand = null;
-    let leftPinch = false, rightPinch = false;
+    let leftHandData = null, rightHandData = null;
     let grabbedObject = null;
 
     const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
 
     hands.setOptions({
@@ -250,15 +248,39 @@
 
     cam.start()
       .then(() => statusEl.textContent = "Hệ thống sẵn sàng — Đưa cả 2 tay vào khung hình")
-      .catch(err => {
-        statusEl.innerHTML = `<span style="color:#ff5555">Lỗi Camera!</span><br>Hãy chạy bằng <b>Live Server</b> hoặc python -m http.server`;
+      .catch(() => {
+        statusEl.innerHTML = `<span style="color:#ff5555">Lỗi Camera!</span> Hãy chạy bằng Live Server hoặc python -m http.server`;
       });
 
+    function updateSkeleton(skeleton, landmarks) {
+      if (!landmarks) {
+        skeleton.group.visible = false;
+        return;
+      }
+      skeleton.group.visible = true;
+
+      // Update joints
+      landmarks.forEach((lm, i) => {
+        const x = (0.5 - lm.x) * 9;
+        const y = (0.5 - lm.y) * 6 + 0.3;
+        const z = -lm.z * 5;
+        skeleton.joints[i].position.set(x, y, z);
+      });
+
+      // Update lines
+      skeleton.lines.forEach(({ line, a, b }) => {
+        const positions = line.geometry.attributes.position;
+        positions.setXYZ(0, skeleton.joints[a].position.x, skeleton.joints[a].position.y, skeleton.joints[a].position.z);
+        positions.setXYZ(1, skeleton.joints[b].position.x, skeleton.joints[b].position.y, skeleton.joints[b].position.z);
+        positions.needsUpdate = true;
+      });
+    }
+
     function onResults(results) {
-      leftHand = null;
-      rightHand = null;
-      leftCursor.visible = false;
-      rightCursor.visible = false;
+      leftHandData = null;
+      rightHandData = null;
+      leftSkeleton.group.visible = false;
+      rightSkeleton.group.visible = false;
 
       if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
         statusEl.textContent = "Không thấy tay — Đưa cả 2 tay vào khung";
@@ -267,50 +289,42 @@
 
       for (let i = 0; i < results.multiHandLandmarks.length; i++) {
         const landmarks = results.multiHandLandmarks[i];
-        const handedness = results.multiHandedness[i].label; // "Left" or "Right"
-        const isLeft = handedness === "Left"; // vì video bị lật gương
+        const label = results.multiHandedness[i].label; // "Left" / "Right"
+        const isLeft = label === "Left"; // vì video lật gương
 
-        const indexTip = landmarks[8];
-        const thumbTip = landmarks[4];
-        const wrist = landmarks[0];
+        const index = landmarks[8];
+        const thumb = landmarks[4];
+        const dist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+        const pinching = dist < 0.055;
 
-        // Chuyển từ tọa độ MediaPipe sang không gian 3D
-        const x = (0.5 - indexTip.x) * 8;
-        const y = (0.5 - indexTip.y) * 5 + 0.5;
-        const z = -indexTip.z * 4;
-
-        const dist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-        const isPinching = dist < 0.055;
+        const x = (0.5 - index.x) * 9;
+        const y = (0.5 - index.y) * 6 + 0.3;
+        const z = -index.z * 5;
 
         if (isLeft) {
-          leftHand = { x, y, z, pinch: isPinching };
-          leftCursor.position.set(x, y, z);
-          leftCursor.visible = true;
-          leftPinch = isPinching;
+          leftHandData = { x, y, z, pinch: pinching };
+          updateSkeleton(leftSkeleton, landmarks);
         } else {
-          rightHand = { x, y, z, pinch: isPinching };
-          rightCursor.position.set(x, y, z);
-          rightCursor.visible = true;
-          rightPinch = isPinching;
+          rightHandData = { x, y, z, pinch: pinching };
+          updateSkeleton(rightSkeleton, landmarks);
         }
       }
 
-      // === LOGIC TƯƠNG TÁC ===
-      // Tay trái: Grab & Move
-      if (leftHand && leftHand.pinch) {
+      // === TƯƠNG TÁC ===
+      // Tay trái: Grab
+      if (leftHandData && leftHandData.pinch) {
         if (!grabbedObject) {
-          // Tìm object gần nhất
-          let minDist = 1.2;
+          let minD = 1.4;
           objects.forEach(obj => {
-            const d = obj.position.distanceTo(new THREE.Vector3(leftHand.x, leftHand.y, leftHand.z));
-            if (d < minDist) {
-              minDist = d;
+            const d = obj.position.distanceTo(new THREE.Vector3(leftHandData.x, leftHandData.y, leftHandData.z));
+            if (d < minD) {
+              minD = d;
               grabbedObject = obj;
             }
           });
         }
         if (grabbedObject) {
-          grabbedObject.position.lerp(new THREE.Vector3(leftHand.x, leftHand.y, leftHand.z), 0.25);
+          grabbedObject.position.lerp(new THREE.Vector3(leftHandData.x, leftHandData.y, leftHandData.z), 0.28);
           grabbedObject.userData.grabbed = true;
         }
       } else {
@@ -319,56 +333,50 @@
       }
 
       // Tay phải: Scale
-      if (rightHand && rightHand.pinch && grabbedObject) {
-        const scale = 0.6 + (0.055 - Math.hypot(
-          results.multiHandLandmarks[0][4].x - results.multiHandLandmarks[0][8].x,
-          results.multiHandLandmarks[0][4].y - results.multiHandLandmarks[0][8].y
-        )) * 18;
-        grabbedObject.scale.setScalar(THREE.MathUtils.clamp(scale, 0.4, 2.8));
+      if (rightHandData && rightHandData.pinch && grabbedObject) {
+        const scale = THREE.MathUtils.clamp(0.55 + (0.055 - 0.03) * 20, 0.4, 2.9);
+        grabbedObject.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.15);
       }
 
-      // Cả 2 tay mở → Energy Field
-      const bothOpen = leftHand && rightHand && !leftHand.pinch && !rightHand.pinch;
-      if (bothOpen) {
+      // Cả 2 tay mở
+      if (leftHandData && rightHandData && !leftHandData.pinch && !rightHandData.pinch) {
         objects.forEach(obj => {
-          obj.rotation.x += 0.02;
-          obj.rotation.y += 0.03;
-          obj.material.emissiveIntensity = 0.9;
+          obj.rotation.x += 0.025;
+          obj.rotation.y += 0.035;
+          obj.material.emissiveIntensity = 1.1;
         });
-        statusEl.textContent = "⚡ ENERGY FIELD ACTIVATED";
+        statusEl.textContent = "⚡ ENERGY FIELD MAXIMUM";
       } else {
-        objects.forEach(obj => obj.material.emissiveIntensity = 0.4);
-        if (leftHand && rightHand) statusEl.textContent = "Cả 2 tay đang hoạt động";
-        else if (leftHand) statusEl.textContent = "Tay trái đang điều khiển";
-        else if (rightHand) statusEl.textContent = "Tay phải đang điều khiển";
+        objects.forEach(obj => obj.material.emissiveIntensity = 0.55);
+        if (leftHandData && rightHandData) statusEl.textContent = "Cả 2 tay đang hoạt động • Khung tay đang theo dõi";
+        else if (leftHandData) statusEl.textContent = "Tay trái (xanh) đang điều khiển";
+        else if (rightHandData) statusEl.textContent = "Tay phải (hồng) đang điều khiển";
       }
     }
 
-    // ====================== ANIMATION LOOP ======================
+    // ====================== ANIMATE ======================
     function animate() {
       requestAnimationFrame(animate);
 
-      // Xoay nhẹ các object khi không bị nắm
       objects.forEach(obj => {
         if (!obj.userData.grabbed) {
-          obj.rotation.x += 0.004;
-          obj.rotation.y += 0.006;
+          obj.rotation.x += 0.005;
+          obj.rotation.y += 0.007;
         }
       });
 
-      // Particle drift
-      const pos = particleSystem.geometry.attributes.position.array;
-      for (let i = 1; i < pos.length; i += 3) {
-        pos[i] += 0.003;
-        if (pos[i] > 6) pos[i] = -6;
+      // Particles
+      const arr = particles.geometry.attributes.position.array;
+      for (let i = 1; i < arr.length; i += 3) {
+        arr[i] += 0.004;
+        if (arr[i] > 7) arr[i] = -7;
       }
-      particleSystem.geometry.attributes.position.needsUpdate = true;
+      particles.geometry.attributes.position.needsUpdate = true;
 
       renderer.render(scene, camera);
     }
     animate();
 
-    // Resize
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
